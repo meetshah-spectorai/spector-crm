@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Test-Path \"C:\\\\Program Files\\\\nodejs\\\\node.exe\"; Test-Path \"$env:LOCALAPPDATA\\\\nvs\"; Test-Path \"$env:APPDATA\\\\nvm\"; Get-ChildItem -Force -Path \"c:\\\\Users\\\\mdsre\\\\OneDrive\\\\Desktop\\\\CRM\" -ErrorAction SilentlyContinue | Select-Object Name)"
+    ]
+  }
+}
