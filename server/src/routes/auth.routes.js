@@ -8,6 +8,7 @@ const ctrl = require('../controllers/auth.controller');
 const {
   registerSchema,
   loginSchema,
+  googleAuthSchema,
   updateProfileSchema,
   changePasswordSchema,
   deleteAccountSchema,
@@ -17,6 +18,7 @@ const router = express.Router();
 
 router.post('/register', authLimiter, validate(registerSchema), ctrl.register);
 router.post('/login', authLimiter, validate(loginSchema), ctrl.login);
+router.post('/google', authLimiter, validate(googleAuthSchema), ctrl.googleLogin);
 router.post('/refresh', ctrl.refresh);
 router.post('/logout', ctrl.logout);
 

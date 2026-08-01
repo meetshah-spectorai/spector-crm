@@ -33,17 +33,26 @@ const updateProfileSchema = z
   })
   .refine((data) => Object.keys(data).length > 0, { message: 'No fields to update' });
 
+/** The ID token Google Identity Services hands the browser. */
+const googleAuthSchema = z.object({
+  credential: z.string().trim().min(20, 'Missing Google credential').max(8192),
+});
+
 const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
+  // Optional only because a Google account may not have a password yet — the
+  // controller still demands it whenever one is set.
+  currentPassword: z.string().min(1).optional(),
   newPassword: password,
 });
 
 /**
- * Deleting your own account. The password is required as a re-authentication
- * step; `transferTo` is the teammate who inherits any deals and tasks.
+ * Deleting your own account. The password is a re-authentication step, required
+ * by the controller for every account that has one (so a Google account without
+ * a password can still be deleted); `transferTo` is the teammate who inherits
+ * any deals and tasks.
  */
 const deleteAccountSchema = z.object({
-  password: z.string().min(1, 'Enter your password to confirm'),
+  password: z.string().min(1).optional(),
   transferTo: z
     .string()
     .regex(/^[0-9a-fA-F]{24}$/, 'Invalid teammate id')
@@ -53,6 +62,7 @@ const deleteAccountSchema = z.object({
 module.exports = {
   registerSchema,
   loginSchema,
+  googleAuthSchema,
   updateProfileSchema,
   changePasswordSchema,
   deleteAccountSchema,

@@ -3,13 +3,16 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { KanbanSquare } from 'lucide-react';
 import { Button, Field, Input } from '@/components/ui';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 import {
   clearAuthError,
   login,
+  loginWithGoogle,
   selectAuthError,
   selectAuthStatus,
   selectUser,
 } from '@/features/auth/authSlice';
+import { googleAuthConfigured } from '@/utils/googleIdentity';
 
 export default function Login() {
   const dispatch = useDispatch();
@@ -83,6 +86,26 @@ export default function Login() {
           <Button type="submit" className="w-full" loading={status === 'loading'}>
             Sign in
           </Button>
+
+          {/* In dev the section stays visible when unconfigured, so the missing
+              client id is obvious rather than silently absent. */}
+          {(googleAuthConfigured || import.meta.env.DEV) && (
+            <>
+              <div className="flex items-center gap-3" aria-hidden>
+                <span className="h-px flex-1 bg-slate-200" />
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  or
+                </span>
+                <span className="h-px flex-1 bg-slate-200" />
+              </div>
+
+              {/* Signs in with a Google account, creating one on first use. */}
+              <GoogleSignInButton
+                busy={status === 'loading'}
+                onCredential={(credential) => dispatch(loginWithGoogle(credential))}
+              />
+            </>
+          )}
 
           <p className="text-center text-sm text-slate-500">
             No account yet?{' '}

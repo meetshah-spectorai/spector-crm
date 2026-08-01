@@ -1,9 +1,9 @@
 # Spector.AI CRM
 
 An internal MERN CRM for a small team of two or three people who all work the
-same pipeline: a drag-and-drop Kanban board, a full activity log for every deal,
-reminders for the next action with email notifications, and one centralized to-do
-list across every deal.
+same pipeline: a drag-and-drop Kanban board, a note log on every deal, reminders
+for the next action with email notifications, and one centralized to-do list
+across every deal.
 
 **Everyone is a peer.** There are no roles, no permission tiers and no admin
 screen — every signed-in teammate sees and can edit the whole pipeline. `owner`
@@ -25,11 +25,12 @@ CRM/
 | Deals with stage, status and monetary value (9 currencies) | [Deal.js](server/src/models/Deal.js), [DealFormModal.jsx](client/src/components/deals/DealFormModal.jsx) |
 | Kanban board with drag-and-drop across stages | [KanbanBoard.jsx](client/src/components/kanban/KanbanBoard.jsx), `PATCH /api/deals/:id/move` |
 | **Configurable board columns** — add and rename stages | [Stage.js](server/src/models/Stage.js), [stage.service.js](server/src/services/stage.service.js), [ManageColumnsModal.jsx](client/src/components/kanban/ManageColumnsModal.jsx) |
-| Activity log — every significant event, timestamped | [Activity.js](server/src/models/Activity.js), [activity.service.js](server/src/services/activity.service.js) |
+| Notes on a deal — pin, edit, search the running log | [Note.js](server/src/models/Note.js), [NotesTab.jsx](client/src/components/notes/NotesTab.jsx) |
 | Reminders for the next action on a deal | [Reminder.js](server/src/models/Reminder.js), [ReminderFormModal.jsx](client/src/components/reminders/ReminderFormModal.jsx) |
 | Email notifications (due-soon + daily digest) | [reminderScheduler.js](server/src/jobs/reminderScheduler.js), [email.service.js](server/src/services/email.service.js) |
 | Centralized to-do list across all deals | [Tasks.jsx](client/src/pages/Tasks.jsx), `GET /api/reminders` |
 | JWT auth with an httpOnly refresh cookie | [auth.js](server/src/middleware/auth.js) |
+| **Sign in with Google** (optional, ID-token flow) | [google.service.js](server/src/services/google.service.js), [GoogleSignInButton.jsx](client/src/components/auth/GoogleSignInButton.jsx) |
 | Dashboard with pipeline KPIs and a by-stage chart | [Dashboard.jsx](client/src/pages/Dashboard.jsx) |
 
 Registration is open — anyone who can reach the API can create an account. That
@@ -94,7 +95,7 @@ The server validates its whole environment at boot and refuses to start with a
 clear message if anything is missing, rather than failing later at runtime.
 
 ```bash
-npm run seed     # optional: three teammates, deals, reminders and activity
+npm run seed     # optional: three teammates, deals, reminders and notes
 npm run dev      # http://localhost:5000
 ```
 
@@ -107,7 +108,7 @@ equal, all sharing one pipeline:
 | `alex@example.com` |
 | `jordan@example.com` |
 
-`npm run seed -- --wipe` clears deals, reminders and activities first.
+`npm run seed -- --wipe` clears deals, reminders and notes first.
 
 ### 2. Client
 
@@ -122,7 +123,36 @@ In development Vite proxies `/api` to `http://localhost:5000`, so the browser
 sees a single origin and the refresh cookie behaves exactly as it does in
 production. Leave `VITE_API_BASE_URL` empty locally.
 
-### 3. Tests
+### 3. Sign in with Google (optional)
+
+Skip this and the CRM stays on email + password; the button is simply not
+rendered. To enable it:
+
+1. [Google Cloud console](https://console.cloud.google.com) → **APIs & Services →
+   Credentials → Create credentials → OAuth client ID**, type **Web application**.
+2. Under **Authorized JavaScript origins** add the URL the app is served from —
+   `http://localhost:5173` for local work, plus your deployed frontend URL. (No
+   redirect URI is needed: this is the ID-token flow, not a redirect flow.)
+3. Put the client id — the same value — in both places, and restart both servers:
+
+```ini
+# server/.env
+GOOGLE_CLIENT_ID=1234567890-abc123.apps.googleusercontent.com
+
+# client/.env
+VITE_GOOGLE_CLIENT_ID=1234567890-abc123.apps.googleusercontent.com
+```
+
+There is **no client secret**: the browser hands the API a signed ID token, and
+the API verifies it against Google's public keys.
+
+First sign-in with a given Google account creates a CRM account for it (the same
+open registration the app already has). If the Google email matches an existing
+account, Google is linked to that account instead — Google has verified the
+address, and it is the same person either way. Google-created accounts have no
+password until the owner sets one under **Settings → Set a password**.
+
+### 4. Tests
 
 ```bash
 cd server
@@ -186,11 +216,12 @@ All routes are under `/api`. Authenticated routes need `Authorization: Bearer <a
 |---|---|---|
 | `POST` | `/auth/register` | Open registration |
 | `POST` | `/auth/login` | Sets the httpOnly refresh cookie |
+| `POST` | `/auth/google` | `{ credential }` — a Google ID token. Signs in, links the Google account to a matching email, or creates one (`201`) |
 | `POST` | `/auth/refresh` | Cookie → new access token |
 | `POST` | `/auth/logout` | Clears the cookie |
 | `GET` | `/auth/me` | Current user |
 | `PATCH` | `/auth/me` | Name, notification preferences |
-| `POST` | `/auth/change-password` | Invalidates all existing tokens |
+| `POST` | `/auth/change-password` | Invalidates all existing tokens. Doubles as "set a password" for a Google account that has none |
 
 </details>
 
@@ -214,17 +245,28 @@ All routes are under `/api`. Authenticated routes need `Authorization: Bearer <a
 | `GET` | `/deals/board` | All Kanban columns with per-stage totals and each deal's next action |
 | `GET` | `/deals/stats` | Dashboard aggregates |
 | `POST` | `/deals` | Create |
-| `GET` | `/deals/:id` | Deal + activity timeline + reminders |
-| `PATCH` | `/deals/:id` | Update (logs a field-level diff) |
+| `GET` | `/deals/:id` | Deal + its reminders |
+| `PATCH` | `/deals/:id` | Update |
 | `PATCH` | `/deals/:id/move` | **Drag-and-drop**: `{ stage, index }` |
-| `POST` | `/deals/:id/notes` | Add a timestamped note |
 | `PATCH` | `/deals/:id/archive` · `/restore` | Archiving cancels pending tasks |
-| `DELETE` | `/deals/:id` | Hard delete; reminders go with it |
+| `DELETE` | `/deals/:id` | Hard delete; reminders and notes go with it |
 
 </details>
 
 <details>
-<summary><strong>Reminders, activities, users</strong></summary>
+<summary><strong>Notes</strong></summary>
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/notes` | A deal's note log. Filters: `deal`, `search`, `page`, `limit`. Pinned first, then newest |
+| `POST` | `/notes` | Create: `{ deal, body, pinned? }` |
+| `PATCH` | `/notes/:id` | Edit the body or pin it — author only; stamps `editedAt` |
+| `DELETE` | `/notes/:id` | Author only |
+
+</details>
+
+<details>
+<summary><strong>Reminders and users</strong></summary>
 
 | Method | Path | Notes |
 |---|---|---|
@@ -233,8 +275,6 @@ All routes are under `/api`. Authenticated routes need `Authorization: Bearer <a
 | `PATCH` | `/reminders/:id` | Rescheduling re-arms the notification |
 | `POST` | `/reminders/:id/complete` | One-click done |
 | `DELETE` | `/reminders/:id` | |
-| `GET` | `/activities` | Shared team feed. Filters: `type`, `actor`, `deal` |
-| `GET` | `/activities/deal/:id` | One deal's full lifecycle |
 | `GET` | `/users` | Team roster for the owner / assignee pickers |
 | `GET` | `/health` · `/meta` | Probe, and the fixed enums (priorities, currencies, colours) |
 
@@ -328,6 +368,12 @@ routes survive a hard refresh.
 
 ## Architecture notes
 
+**Google sign-in.** The browser gets a signed ID token from Google Identity
+Services and posts it to `/api/auth/google`; the API verifies the signature
+against Google's keys, checks the token was minted for *our* client id, then
+issues its own session. No OAuth secret, no redirect leg, and no third-party
+session — Google authenticates the person, this app still owns the session.
+
 **Auth.** Short-lived access token (15 min) held **in memory only** — never
 `localStorage`, so an XSS bug cannot read it. Sessions survive a page refresh via
 an httpOnly, `SameSite=None; Secure` refresh cookie scoped to `/api/auth`. Axios
@@ -338,8 +384,7 @@ it and retires all outstanding tokens immediately.
 **No permission layer.** Being signed in *is* the authorisation. That removes an
 entire class of bug (row-level scoping that leaks, or over-blocks) and is the right
 trade for a small internal team — but it means anyone with an account can delete
-any deal. The activity log is what makes that safe: every change is attributed and
-timestamped, and it is append-only.
+any deal. Keep registration behind a private URL or your own network.
 
 **Board ordering.** Each deal carries an `order` within its stage. A move inserts
 the card at the midpoint of its neighbours — one write, no column-wide rewrite —
@@ -354,10 +399,9 @@ and every write path (create, edit, drag, outcome change) goes through it.
 request lands and the board refetches from the server if it fails, so a drag
 never feels laggy but also never lies.
 
-**Activity log.** Append-only: nothing in the app updates or deletes an entry.
-Deal updates are diffed field-by-field, so the timeline reads
-"value $48,000 → $52,000" rather than "deal updated". Log writes never break the
-request that triggered them — a logging failure is reported, not thrown.
+**Notes.** A deal's running log, attributed to whoever wrote each entry. Anyone
+can read them; only the author can edit or delete their own — the server enforces
+that, the UI just hides what would be refused.
 
 **Security.** Helmet, a CORS allowlist, rate limits (tighter on credential
 routes), bcrypt at cost 12, Zod validation on every body/query/param, a
@@ -372,10 +416,10 @@ go through a field whitelist, so no mass-assignment.
 ```
 server/src
 ├── config/        env validation (fail-fast), mongoose connection
-├── models/        User, Deal, Stage, Activity, Reminder
+├── models/        User, Deal, Stage, Reminder, Note
 ├── controllers/   request → response, one file per resource
 ├── routes/        thin routing, middleware composition
-├── services/      stages, activity log, email + templates, tokens
+├── services/      stages, email + templates, tokens
 ├── middleware/    auth, validation, sanitising, rate limits, errors
 ├── validators/    Zod schemas
 ├── jobs/          node-cron reminder sweep + daily digest

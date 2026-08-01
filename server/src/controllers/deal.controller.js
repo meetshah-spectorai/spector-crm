@@ -3,6 +3,7 @@
 const mongoose = require('mongoose');
 const Deal = require('../models/Deal');
 const Reminder = require('../models/Reminder');
+const Note = require('../models/Note');
 const User = require('../models/User');
 const ApiError = require('../utils/ApiError');
 const asyncHandler = require('../utils/asyncHandler');
@@ -423,12 +424,15 @@ const setArchived = (archived) =>
 const archiveDeal = setArchived(true);
 const restoreDeal = setArchived(false);
 
-/** DELETE /api/deals/:id — hard delete. Its reminders go with it. */
+/** DELETE /api/deals/:id — hard delete. Its reminders and notes go with it. */
 const deleteDeal = asyncHandler(async (req, res) => {
   const deal = await Deal.findById(req.params.id);
   if (!deal) throw ApiError.notFound('Deal not found');
 
-  await Reminder.deleteMany({ deal: deal._id });
+  await Promise.all([
+    Reminder.deleteMany({ deal: deal._id }),
+    Note.deleteMany({ deal: deal._id }),
+  ]);
   await deal.deleteOne();
 
   res.json({ success: true, message: 'Deal deleted' });

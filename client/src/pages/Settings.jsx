@@ -4,11 +4,10 @@ import toast from 'react-hot-toast';
 import { Bell, KeyRound, UserRound } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import { Avatar, Button, Field, Input } from '@/components/ui';
-import MailboxSettings from '@/components/emails/MailboxSettings';
 import DeleteAccountCard from '@/components/settings/DeleteAccountCard';
 import { authApi } from '@/api/endpoints';
 import { setAccessToken, errorMessage } from '@/api/client';
-import { selectUser, updateProfile } from '@/features/auth/authSlice';
+import { selectUser, updateProfile, userUpdated } from '@/features/auth/authSlice';
 
 export default function Settings() {
   const dispatch = useDispatch();
@@ -45,15 +44,25 @@ export default function Settings() {
     }
   };
 
+  // A Google account has no password until its owner sets one here.
+  const hasPassword = user?.hasPassword !== false;
+
   const changePassword = async (e) => {
     e.preventDefault();
     setPasswordSaving(true);
     try {
-      const res = await authApi.changePassword(passwords);
+      const res = await authApi.changePassword(
+        hasPassword ? passwords : { newPassword: passwords.newPassword }
+      );
       // The server rotates every token; adopt the fresh one so we stay signed in.
       if (res?.data?.accessToken) setAccessToken(res.data.accessToken);
+      if (res?.data?.user) dispatch(userUpdated(res.data.user));
       setPasswords({ currentPassword: '', newPassword: '' });
-      toast.success('Password updated — other sessions have been signed out');
+      toast.success(
+        hasPassword
+          ? 'Password updated — other sessions have been signed out'
+          : 'Password set — you can now sign in with your email too'
+      );
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -128,26 +137,33 @@ export default function Settings() {
           </form>
         </section>
 
-        <MailboxSettings />
-
         <section className="card p-4 sm:p-5">
           <form onSubmit={changePassword} className="space-y-4">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
               <KeyRound className="h-4 w-4 text-slate-400" aria-hidden />
-              Change password
+              {hasPassword ? 'Change password' : 'Set a password'}
             </h2>
 
-            <Field label="Current password" required>
-              <Input
-                type="password"
-                autoComplete="current-password"
-                value={passwords.currentPassword}
-                onChange={(e) =>
-                  setPasswords((p) => ({ ...p, currentPassword: e.target.value }))
-                }
-                required
-              />
-            </Field>
+            {!hasPassword && (
+              <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                You signed in with Google, so this account has no password. Setting one lets you
+                sign in with your email address as well — Google keeps working either way.
+              </p>
+            )}
+
+            {hasPassword && (
+              <Field label="Current password" required>
+                <Input
+                  type="password"
+                  autoComplete="current-password"
+                  value={passwords.currentPassword}
+                  onChange={(e) =>
+                    setPasswords((p) => ({ ...p, currentPassword: e.target.value }))
+                  }
+                  required
+                />
+              </Field>
+            )}
 
             <Field
               label="New password"
@@ -166,7 +182,7 @@ export default function Settings() {
 
             <div className="flex justify-end">
               <Button type="submit" variant="secondary" loading={passwordSaving}>
-                Update password
+                {hasPassword ? 'Update password' : 'Set password'}
               </Button>
             </div>
           </form>

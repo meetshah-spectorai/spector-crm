@@ -20,7 +20,7 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
-import EmailsTab from '@/components/emails/EmailsTab';
+import NotesTab from '@/components/notes/NotesTab';
 import ReminderItem from '@/components/reminders/ReminderItem';
 import DealFormModal from '@/components/deals/DealFormModal';
 import ReminderFormModal from '@/components/reminders/ReminderFormModal';
@@ -387,15 +387,15 @@ export default function DealDetail() {
           </section>
         </div>
 
-        {/* ---------------------------------------------- Emails column */}
+        {/* ----------------------------------------------- Notes column */}
         <section className="card flex flex-col lg:col-span-2">
           <div className="flex gap-1 border-b border-slate-200 px-4 pt-3">
             <span className="-mb-px border-b-2 border-brand-600 px-3 py-2 text-sm font-semibold text-brand-700">
-              Emails
+              Notes
             </span>
           </div>
 
-          <EmailsTab deal={deal} />
+          <NotesTab deal={deal} />
         </section>
       </div>
 

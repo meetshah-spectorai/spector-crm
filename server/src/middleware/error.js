@@ -34,7 +34,12 @@ function errorHandler(err, req, res, next) {
     message = 'Session expired';
   }
 
-  if (statusCode >= 500) {
+  // A thrown ApiError is a decision the code made, so its message is safe to
+  // show and is not a crash. Anything else at 5xx is a bug: log the stack and
+  // tell the client nothing beyond "it broke".
+  const deliberate = err instanceof ApiError || err.isOperational === true;
+
+  if (statusCode >= 500 && !deliberate) {
     logger.error(`${req.method} ${req.originalUrl} →`, err.stack || err.message);
   } else {
     logger.warn(`${req.method} ${req.originalUrl} → ${statusCode} ${message}`);
@@ -42,7 +47,7 @@ function errorHandler(err, req, res, next) {
 
   res.status(statusCode).json({
     success: false,
-    message: statusCode >= 500 && config.isProd ? 'Internal server error' : message,
+    message: statusCode >= 500 && config.isProd && !deliberate ? 'Internal server error' : message,
     ...(details ? { details } : {}),
     ...(config.isProd ? {} : { stack: err.stack }),
   });

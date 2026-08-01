@@ -37,7 +37,11 @@ export default function DeleteAccountCard() {
     }
   }, [open, dispatch]);
 
-  const canSubmit = password.length > 0 && confirmText.trim().toUpperCase() === 'DELETE';
+  // A Google account may have no password to re-enter; the typed confirmation and
+  // the access token are the safeguards then.
+  const hasPassword = user?.hasPassword !== false;
+  const canSubmit =
+    (!hasPassword || password.length > 0) && confirmText.trim().toUpperCase() === 'DELETE';
 
   const submit = async (e) => {
     e.preventDefault();
@@ -47,7 +51,10 @@ export default function DeleteAccountCard() {
     setError(null);
     try {
       const message = await dispatch(
-        deleteMyAccount({ password, ...(transferTo ? { transferTo } : {}) })
+        deleteMyAccount({
+          ...(hasPassword ? { password } : {}),
+          ...(transferTo ? { transferTo } : {}),
+        })
       ).unwrap();
       toast.success(message);
       // The auth slice clears the session; ProtectedRoute redirects to /login.
@@ -65,9 +72,8 @@ export default function DeleteAccountCard() {
         Delete account
       </h2>
       <p className="mt-1 text-xs leading-relaxed text-rose-800/80">
-        Permanently deletes <span className="font-semibold">{user?.email}</span>. Your deals and
-        open tasks are handed to a teammate you choose; any mailbox you connected is disconnected
-        and its synced emails removed. This cannot be undone.
+        Permanently deletes <span className="font-semibold">{user?.email}</span>. Your deals, open
+        tasks and notes are handed to a teammate you choose. This cannot be undone.
       </p>
 
       <div className="mt-3">
@@ -132,15 +138,17 @@ export default function DeleteAccountCard() {
             </Select>
           </Field>
 
-          <Field label="Your password" required>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              placeholder="••••••••"
-            />
-          </Field>
+          {hasPassword && (
+            <Field label="Your password" required>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                placeholder="••••••••"
+              />
+            </Field>
+          )}
 
           {/* A typed confirmation makes this hard to trigger by accident. */}
           <Field label='Type "DELETE" to confirm' required>

@@ -67,7 +67,11 @@ api.interceptors.response.use(
       );
     }
 
-    const isAuthRoute = config?.url?.includes('/auth/refresh') || config?.url?.includes('/auth/login');
+    // A 401 from a sign-in attempt means "those credentials failed", not "your
+    // session lapsed" — refreshing would be pointless and would clear the state.
+    const isAuthRoute = ['/auth/refresh', '/auth/login', '/auth/google'].some((route) =>
+      config?.url?.includes(route)
+    );
 
     // One retry per request, and never for the refresh call itself.
     if (response.status === 401 && !config._retried && !config.skipAuthRefresh && !isAuthRoute) {

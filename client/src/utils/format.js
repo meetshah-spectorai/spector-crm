@@ -64,20 +64,6 @@ export const formatDueDate = (date) => {
 
 export const timeAgo = (date) => (date ? `${formatDistanceToNowStrict(new Date(date))} ago` : '');
 
-/** Email timestamps read as "31 Jul 2026 • 10:30 AM". */
-export const formatEmailDate = (date) => {
-  if (!date) return '—';
-  const d = new Date(date);
-  return `${format(d, 'd MMM yyyy')} • ${format(d, 'h:mm a')}`;
-};
-
-export const formatFileSize = (bytes = 0) => {
-  if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
-
 /** ISO string → the value a datetime-local input expects. */
 export const toDateTimeLocal = (date) => {
   if (!date) return '';

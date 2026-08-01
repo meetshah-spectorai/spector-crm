@@ -1,11 +1,11 @@
 'use strict';
 
 /**
- * Development seed: three teammates, a spread of deals across the pipeline and
- * matching reminders.
+ * Development seed: three teammates, a spread of deals across the pipeline with
+ * matching reminders and notes.
  *
  *   npm run seed            # add demo data, keep anything already there
- *   npm run seed -- --wipe  # delete deals/reminders first
+ *   npm run seed -- --wipe  # delete deals/reminders/notes first
  */
 
 const mongoose = require('mongoose');
@@ -15,6 +15,7 @@ const { connectDB, disconnectDB } = require('../config/db');
 const User = require('../models/User');
 const Deal = require('../models/Deal');
 const Reminder = require('../models/Reminder');
+const Note = require('../models/Note');
 const stageService = require('../services/stage.service');
 
 const hours = (n) => new Date(Date.now() + n * 60 * 60 * 1000);
@@ -162,13 +163,33 @@ const REMINDERS = [
   },
 ];
 
+const NOTES = [
+  {
+    dealTitle: 'Acme Corp - Platform licence',
+    body: 'Call with Dana and Luis: 240 seats confirmed, three-year term. Legal wants the liability cap raised before signing. Dana is the decision maker, Luis signs off on the commercials.',
+    pinned: true,
+  },
+  {
+    dealTitle: 'Acme Corp - Platform licence',
+    body: 'Procurement asked for a 12% discount on year one. Countered with 8% in exchange for an annual up-front payment — waiting to hear back.',
+  },
+  {
+    dealTitle: 'Northwind - Analytics add-on',
+    body: 'Proposal sent last Tuesday. Samir is on leave until Monday, so no feedback before then. Worth a nudge mid-week.',
+  },
+  {
+    dealTitle: 'Globex - Pilot programme',
+    body: 'Technical discovery still to be scheduled. Their platform team wants to see the data-residency options before committing to a pilot.',
+  },
+];
+
 async function seed() {
   const wipe = process.argv.includes('--wipe');
   await connectDB();
 
   if (wipe) {
-    logger.warn('Wiping deals and reminders...');
-    await Promise.all([Deal.deleteMany({}), Reminder.deleteMany({})]);
+    logger.warn('Wiping deals, reminders and notes...');
+    await Promise.all([Deal.deleteMany({}), Reminder.deleteMany({}), Note.deleteMany({})]);
   }
 
   // The seed data references the default columns, so make sure they exist.
@@ -233,6 +254,21 @@ async function seed() {
     });
 
     logger.info(`Created reminder: ${reminder.title}`);
+  }
+
+  for (const spec of NOTES) {
+    const deal = created.get(spec.dealTitle);
+    if (!deal) continue;
+    if (await Note.exists({ deal: deal._id, body: spec.body })) continue;
+
+    await Note.create({
+      body: spec.body,
+      pinned: Boolean(spec.pinned),
+      deal: deal._id,
+      author: deal.owner,
+    });
+
+    logger.info(`Created note on: ${deal.title}`);
   }
 
   logger.info('');

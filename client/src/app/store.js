@@ -3,7 +3,7 @@ import authReducer, { sessionExpired } from '@/features/auth/authSlice';
 import dealsReducer from '@/features/deals/dealsSlice';
 import stagesReducer from '@/features/stages/stagesSlice';
 import remindersReducer from '@/features/reminders/remindersSlice';
-import emailsReducer from '@/features/emails/emailsSlice';
+import notesReducer from '@/features/notes/notesSlice';
 import usersReducer from '@/features/users/usersSlice';
 import { setSessionExpiredHandler } from '@/api/client';
 
@@ -13,7 +13,7 @@ export const store = configureStore({
     deals: dealsReducer,
     stages: stagesReducer,
     reminders: remindersReducer,
-    emails: emailsReducer,
+    notes: notesReducer,
     users: usersReducer,
   },
   middleware: (getDefaultMiddleware) =>

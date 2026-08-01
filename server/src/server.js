@@ -8,7 +8,6 @@ const { connectDB, disconnectDB } = require('./config/db');
 const { verifyTransport } = require('./services/email.service');
 const { ensureDefaultStages } = require('./services/stage.service');
 const { startScheduler, stopScheduler } = require('./jobs/reminderScheduler');
-const { startMailSync, stopMailSync } = require('./jobs/mailSyncScheduler');
 
 const server = http.createServer(app);
 
@@ -17,7 +16,6 @@ async function start() {
   await ensureDefaultStages(); // first boot only; never touches an existing board
   await verifyTransport(); // logs a warning but never blocks startup
   startScheduler();
-  await startMailSync();
 
   server.listen(config.PORT, () => {
     logger.info(`CRM API listening on port ${config.PORT} (${config.NODE_ENV})`);
@@ -33,7 +31,6 @@ async function shutdown(signal) {
   logger.info(`${signal} received — shutting down gracefully`);
 
   stopScheduler();
-  stopMailSync();
   server.close(async () => {
     try {
       await disconnectDB();

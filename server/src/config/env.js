@@ -25,6 +25,12 @@ const schema = z.object({
   CLIENT_ORIGINS: z.string().default('http://localhost:5173'),
   APP_URL: z.string().default('http://localhost:5173'),
 
+  // --- Google sign-in --------------------------------------------------------
+  // OAuth 2.0 *Web application* client id from the Google Cloud console. Leave
+  // empty to keep the CRM on email + password only. No client secret is needed:
+  // the browser sends an ID token, which the API verifies against Google's keys.
+  GOOGLE_CLIENT_ID: z.string().trim().optional().default(''),
+
   SMTP_HOST: z.string().optional().default(''),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_SECURE: bool(false),
@@ -37,21 +43,6 @@ const schema = z.object({
   ENABLE_DAILY_DIGEST: bool(true),
   DAILY_DIGEST_CRON: z.string().default('0 8 * * *'),
   DIGEST_TIMEZONE: z.string().default('UTC'),
-
-  // --- Mailbox sync (Emails tab) --------------------------------------------
-  // 64 hex chars (32 bytes). Required only if you connect a mailbox — mailbox
-  // credentials are encrypted at rest with it.
-  MAIL_ENCRYPTION_KEY: z
-    .string()
-    .regex(/^[0-9a-fA-F]{64}$/, 'MAIL_ENCRYPTION_KEY must be 64 hex characters')
-    .optional()
-    .or(z.literal('')),
-  ENABLE_MAIL_SYNC: bool(true),
-  MAIL_SYNC_CRON: z.string().default('*/5 * * * *'),
-  /** How far back to reach on a mailbox's first sync. */
-  MAIL_BACKFILL_DAYS: z.coerce.number().int().min(1).max(3650).default(180),
-  /** Safety cap on messages examined per folder per run. */
-  MAIL_MAX_PER_RUN: z.coerce.number().int().min(10).max(5000).default(400),
 
   SEED_NAME: z.string().default('You'),
   SEED_EMAIL: z.string().email().default('you@example.com'),
@@ -79,7 +70,7 @@ const config = Object.freeze({
     .filter(Boolean),
   appUrl: env.APP_URL.replace(/\/$/, ''),
   mailEnabled: Boolean(env.SMTP_HOST),
-  mailboxSyncReady: Boolean(env.MAIL_ENCRYPTION_KEY),
+  googleAuthEnabled: Boolean(env.GOOGLE_CLIENT_ID),
 });
 
 module.exports = config;

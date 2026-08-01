@@ -3,10 +3,11 @@
 const User = require('../models/User');
 const Deal = require('../models/Deal');
 const Reminder = require('../models/Reminder');
-const MailAccount = require('../models/MailAccount');
-const EmailMessage = require('../models/EmailMessage');
+const Note = require('../models/Note');
 const ApiError = require('../utils/ApiError');
 const asyncHandler = require('../utils/asyncHandler');
+const logger = require('../utils/logger');
+const { verifyIdToken } = require('../services/google.service');
 const { REMINDER_STATUS } = require('../utils/constants');
 const {
   REFRESH_COOKIE,
@@ -52,6 +53,49 @@ const login = asyncHandler(async (req, res) => {
 
   const accessToken = issueSession(res, user);
   res.json({ success: true, data: { user: user.toJSON(), accessToken } });
+});
+
+/**
+ * POST /api/auth/google
+ *
+ * Sign in (or sign up) with a Google ID token from the browser. Three cases:
+ *
+ *   - the googleId is already known  → sign that person in
+ *   - the email matches an existing account → link Google to it. Safe because
+ *     Google has verified the address, and it is the same person either way;
+ *     without this, anyone who registered with a password could never use the
+ *     button.
+ *   - neither → create an account, exactly as open registration already allows
+ *
+ * Accounts created this way have no password until the owner sets one.
+ */
+const googleLogin = asyncHandler(async (req, res) => {
+  const { googleId, email, name } = await verifyIdToken(req.body.credential);
+
+  let user = await User.findOne({ googleId }).select('+tokenVersion');
+  let created = false;
+
+  if (!user) {
+    user = await User.findOne({ email }).select('+tokenVersion');
+
+    if (user) {
+      user.googleId = googleId;
+    } else {
+      user = new User({ name, email, googleId, hasPassword: false });
+      created = true;
+    }
+  }
+
+  user.lastLoginAt = new Date();
+  await user.save({ validateBeforeSave: false });
+
+  if (created) logger.info(`Account created via Google sign-in: ${email}`);
+
+  const accessToken = issueSession(res, user);
+  res.status(created ? 201 : 200).json({
+    success: true,
+    data: { user: user.toJSON(), accessToken },
+  });
 });
 
 /**
@@ -113,8 +157,17 @@ const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
 
   const user = await User.findById(req.user._id).select('+password +tokenVersion');
-  if (!(await user.comparePassword(currentPassword))) {
-    throw ApiError.badRequest('Current password is incorrect');
+
+  // An account created through Google has no password, so there is nothing to
+  // re-authenticate against — the bearer token is the proof of identity, and
+  // this call becomes "set a password" instead of "change" it.
+  const wasPasswordless = !user.hasPassword;
+
+  if (!wasPasswordless) {
+    if (!currentPassword) throw ApiError.badRequest('Current password is required');
+    if (!(await user.comparePassword(currentPassword))) {
+      throw ApiError.badRequest('Current password is incorrect');
+    }
   }
 
   user.password = newPassword;
@@ -122,28 +175,35 @@ const changePassword = asyncHandler(async (req, res) => {
   await user.save();
 
   const accessToken = issueSession(res, user);
-  res.json({ success: true, message: 'Password updated', data: { accessToken } });
+  res.json({
+    success: true,
+    message: wasPasswordless ? 'Password set' : 'Password updated',
+    data: { accessToken, user: user.toJSON() },
+  });
 });
 
 /**
  * DELETE /api/auth/me — delete your own account.
  *
  * Everyone is a peer, so there is no admin to do this for you. Guards:
- *   - the password must be re-entered (destructive, irreversible)
+ *   - the password must be re-entered (destructive, irreversible). A Google
+ *     account with no password re-authenticates through its access token
+ *     instead, plus the typed confirmation the client insists on.
  *   - deals and open tasks must be handed to a named teammate, so nothing is
  *     silently orphaned
  *   - the last remaining account cannot be deleted, which would leave the
  *     pipeline with no way in
- *
- * Connected mailboxes are always removed rather than transferred: the stored
- * credential is personal and must not pass to someone else.
  */
 const deleteMyAccount = asyncHandler(async (req, res) => {
   const { password, transferTo } = req.body;
 
   const user = await User.findById(req.user._id).select('+password');
-  if (!(await user.comparePassword(password))) {
-    throw ApiError.badRequest('Password is incorrect');
+
+  if (user.hasPassword) {
+    if (!password) throw ApiError.badRequest('Enter your password to confirm');
+    if (!(await user.comparePassword(password))) {
+      throw ApiError.badRequest('Password is incorrect');
+    }
   }
 
   const remaining = await User.countDocuments({ _id: { $ne: user._id } });
@@ -187,15 +247,9 @@ const deleteMyAccount = asyncHandler(async (req, res) => {
       Deal.updateMany({ createdBy: user._id }, { $set: { createdBy: heir._id } }),
       Reminder.updateMany({ assignedTo: user._id }, { $set: { assignedTo: heir._id } }),
       Reminder.updateMany({ createdBy: user._id }, { $set: { createdBy: heir._id } }),
+      // Notes are part of a deal's history — keep them, under the heir's name.
+      Note.updateMany({ author: user._id }, { $set: { author: heir._id } }),
     ]);
-  }
-
-  // Mailboxes and their synced messages go with the person.
-  const accounts = await MailAccount.find({ user: user._id }).select('_id').lean();
-  if (accounts.length) {
-    const ids = accounts.map((a) => a._id);
-    await EmailMessage.deleteMany({ account: { $in: ids } });
-    await MailAccount.deleteMany({ _id: { $in: ids } });
   }
 
   await user.deleteOne();
@@ -212,6 +266,7 @@ const deleteMyAccount = asyncHandler(async (req, res) => {
 module.exports = {
   register,
   login,
+  googleLogin,
   refresh,
   logout,
   me,

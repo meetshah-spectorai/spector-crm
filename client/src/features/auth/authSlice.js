@@ -34,6 +34,23 @@ export const login = createAsyncThunk('auth/login', async (payload, { rejectWith
   }
 });
 
+/**
+ * Signs in with the ID token from the Google button. The API creates the account
+ * on first use, so this covers both signing in and signing up.
+ */
+export const loginWithGoogle = createAsyncThunk(
+  'auth/loginWithGoogle',
+  async (credential, { rejectWithValue }) => {
+    try {
+      const { user, accessToken } = await authApi.google(credential);
+      setAccessToken(accessToken);
+      return user;
+    } catch (err) {
+      return rejectWithValue(errorMessage(err));
+    }
+  }
+);
+
 export const register = createAsyncThunk('auth/register', async (payload, { rejectWithValue }) => {
   try {
     const { user, accessToken } = await authApi.register(payload);
@@ -89,6 +106,10 @@ const authSlice = createSlice({
     clearAuthError(state) {
       state.error = null;
     },
+    /** For flows that call the API directly, e.g. setting a password. */
+    userUpdated(state, action) {
+      state.user = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -120,8 +141,8 @@ const authSlice = createSlice({
         state.error = null;
       });
 
-    // login and register share their success/failure handling.
-    [login, register].forEach((thunk) => {
+    // Every way in shares the same success/failure handling.
+    [login, loginWithGoogle, register].forEach((thunk) => {
       builder
         .addCase(thunk.pending, (state) => {
           state.status = 'loading';
@@ -141,7 +162,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { sessionExpired, clearAuthError } = authSlice.actions;
+export const { sessionExpired, clearAuthError, userUpdated } = authSlice.actions;
 
 export const selectUser = (state) => state.auth.user;
 export const selectIsAuthenticated = (state) => Boolean(state.auth.user);

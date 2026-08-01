@@ -37,7 +37,7 @@ const createDealSchema = z.object({
     .default(''),
   contactPhone: z.string().trim().max(40).optional().default(''),
 
-  /** Extra people on the deal; email sync matches against these too. */
+  /** Extra people on the deal beyond the primary contact. */
   contacts: z
     .array(
       z.object({

@@ -42,7 +42,7 @@ function validate(form) {
   if (form.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) {
     errors.contactEmail = 'That email address does not look right';
   }
-  // Extra contacts must have a valid address — email sync matches on it.
+  // Extra contacts are only worth keeping with a valid address on them.
   const badRow = (form.contacts || []).findIndex(
     (c) => c.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email.trim())
   );
@@ -289,12 +289,11 @@ export default function DealFormModal({ open, onClose, deal, defaultStage = 'lea
           <Input value={form.contactPhone} onChange={set('contactPhone')} placeholder="+1 415 555 0142" />
         </Field>
 
-        {/* Extra people on the deal. Email sync matches conversations against
-            every address here, and the Emails tab groups by contact. */}
+        {/* Extra people on the deal beyond the primary contact above. */}
         <Field
           label="Additional contacts"
           error={errors.contacts}
-          hint="Emails with any of these people appear on this deal's Emails tab"
+          hint="Everyone else involved on the customer's side"
           className="sm:col-span-2"
         >
           <div className="space-y-2">

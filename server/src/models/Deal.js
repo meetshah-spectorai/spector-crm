@@ -27,11 +27,7 @@ const dealSchema = new mongoose.Schema(
     },
     contactPhone: { type: String, trim: true, maxlength: 40, default: '' },
 
-    /**
-     * Additional people on the deal beyond the primary contact above. Email sync
-     * matches against all of these, and the Emails tab groups conversations by
-     * whichever contact they belong to.
-     */
+    /** Additional people on the deal beyond the primary contact above. */
     contacts: {
       type: [
         new mongoose.Schema(

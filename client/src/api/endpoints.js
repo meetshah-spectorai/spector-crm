@@ -5,6 +5,8 @@ import api from './client';
 export const authApi = {
   register: (payload) => api.post('/auth/register', payload).then((r) => r.data.data),
   login: (payload) => api.post('/auth/login', payload).then((r) => r.data.data),
+  /** Exchanges a Google ID token for a CRM session. */
+  google: (credential) => api.post('/auth/google', { credential }).then((r) => r.data.data),
   logout: () => api.post('/auth/logout').then((r) => r.data),
   me: () => api.get('/auth/me').then((r) => r.data.data.user),
   updateProfile: (payload) => api.patch('/auth/me', payload).then((r) => r.data.data.user),
@@ -40,21 +42,11 @@ export const remindersApi = {
   remove: (id) => api.delete(`/reminders/${id}`).then((r) => r.data),
 };
 
-export const emailsApi = {
-  forDeal: (dealId, params) => api.get(`/emails/deal/${dealId}`, { params }).then((r) => r.data),
-  // The active filter/search travel with the thread request so the expanded view
-  // shows the same messages the list was built from.
-  thread: (threadKey, params) =>
-    api.get(`/emails/thread/${threadKey}`, { params }).then((r) => r.data),
-  message: (id) => api.get(`/emails/${id}`).then((r) => r.data.data),
-};
-
-export const mailAccountsApi = {
-  list: () => api.get('/mail-accounts').then((r) => r.data),
-  create: (payload) => api.post('/mail-accounts', payload).then((r) => r.data),
-  update: (id, payload) => api.patch(`/mail-accounts/${id}`, payload).then((r) => r.data.data),
-  sync: (id) => api.post(`/mail-accounts/${id}/sync`).then((r) => r.data),
-  remove: (id) => api.delete(`/mail-accounts/${id}`).then((r) => r.data),
+export const notesApi = {
+  list: (params) => api.get('/notes', { params }).then((r) => r.data),
+  create: (payload) => api.post('/notes', payload).then((r) => r.data.data),
+  update: (id, payload) => api.patch(`/notes/${id}`, payload).then((r) => r.data.data),
+  remove: (id) => api.delete(`/notes/${id}`).then((r) => r.data),
 };
 
 export const usersApi = {
