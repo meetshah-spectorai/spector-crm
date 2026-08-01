@@ -193,7 +193,7 @@ export default function MailboxSettings() {
         onClose={() => setConfirmTarget(null)}
         onConfirm={remove}
         title={`Disconnect ${confirmTarget?.email}?`}
-        message="The stored password and every message synced from this mailbox will be removed. Activity log entries stay, since they are part of each deal's history. Nothing in the mailbox itself is touched."
+        message="The stored password and every message synced from this mailbox will be removed. Nothing in the mailbox itself is touched."
         confirmLabel="Disconnect"
         loading={saving}
       />

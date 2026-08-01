@@ -7,25 +7,27 @@ import { createDeal, selectSaving, updateDeal } from '@/features/deals/dealsSlic
 import { fetchUsers, selectUsers } from '@/features/users/usersSlice';
 import { selectUser } from '@/features/auth/authSlice';
 import { fetchStages, selectStages } from '@/features/stages/stagesSlice';
-import { CURRENCIES, PRIORITIES } from '@/utils/constants';
+import { CURRENCIES } from '@/utils/constants';
 
 const emptyForm = {
   title: '',
   company: '',
   contactName: '',
+  contactDesignation: '',
   contactEmail: '',
   contactPhone: '',
   value: '',
   currency: 'USD',
   stage: 'lead',
-  priority: 'medium',
   owner: '',
   source: '',
   expectedCloseDate: '',
-  tags: '',
   description: '',
   contacts: [],
 };
+
+/** A blank row in the "Additional contacts" list. */
+const emptyContact = { name: '', designation: '', email: '', phone: '' };
 
 const toDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '');
 
@@ -76,18 +78,22 @@ export default function DealFormModal({ open, onClose, deal, defaultStage = 'lea
             title: deal.title || '',
             company: deal.company || '',
             contactName: deal.contactName || '',
+            contactDesignation: deal.contactDesignation || '',
             contactEmail: deal.contactEmail || '',
             contactPhone: deal.contactPhone || '',
             value: String(deal.value ?? ''),
             currency: deal.currency || 'USD',
             stage: deal.stage || '',
-            priority: deal.priority || 'medium',
             owner: deal.owner?._id || deal.owner || '',
             source: deal.source || '',
             expectedCloseDate: toDateInput(deal.expectedCloseDate),
-            tags: (deal.tags || []).join(', '),
             description: deal.description || '',
-            contacts: (deal.contacts || []).map((c) => ({ name: c.name || '', email: c.email || '' })),
+            contacts: (deal.contacts || []).map((c) => ({
+              name: c.name || '',
+              designation: c.designation || '',
+              email: c.email || '',
+              phone: c.phone || '',
+            })),
           }
         : {
             ...emptyForm,
@@ -106,6 +112,17 @@ export default function DealFormModal({ open, onClose, deal, defaultStage = 'lea
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
+  /** Patches one field of one row in the additional-contacts list. */
+  const setContact = (index, key) => (e) => {
+    const value = e.target.value;
+    setForm((f) => {
+      const next = [...f.contacts];
+      next[index] = { ...next[index], [key]: value };
+      return { ...f, contacts: next };
+    });
+    if (errors.contacts) setErrors((prev) => ({ ...prev, contacts: undefined }));
+  };
+
   const stageHint = useMemo(
     () => stages.find((s) => s.key === form.stage)?.probability,
     [stages, form.stage]
@@ -121,21 +138,22 @@ export default function DealFormModal({ open, onClose, deal, defaultStage = 'lea
       title: form.title.trim(),
       company: form.company.trim(),
       contactName: form.contactName.trim(),
+      contactDesignation: form.contactDesignation.trim(),
       contactEmail: form.contactEmail.trim(),
       contactPhone: form.contactPhone.trim(),
       value: Number(form.value),
       currency: form.currency,
       stage: form.stage,
-      priority: form.priority,
       source: form.source.trim(),
       description: form.description.trim(),
-      tags: form.tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
       expectedCloseDate: form.expectedCloseDate || null,
       contacts: (form.contacts || [])
-        .map((c) => ({ name: c.name.trim(), email: c.email.trim().toLowerCase() }))
+        .map((c) => ({
+          name: c.name.trim(),
+          designation: c.designation.trim(),
+          email: c.email.trim().toLowerCase(),
+          phone: c.phone.trim(),
+        }))
         .filter((c) => c.email),
     };
     if (form.owner) payload.owner = form.owner;
@@ -228,16 +246,6 @@ export default function DealFormModal({ open, onClose, deal, defaultStage = 'lea
           </Select>
         </Field>
 
-        <Field label="Priority">
-          <Select value={form.priority} onChange={set('priority')}>
-            {PRIORITIES.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
         <Field label="Owner" hint="Who is working this deal">
           <Select value={form.owner} onChange={set('owner')}>
             <option value="">{currentUser?.name} (me)</option>
@@ -257,6 +265,14 @@ export default function DealFormModal({ open, onClose, deal, defaultStage = 'lea
 
         <Field label="Contact name">
           <Input value={form.contactName} onChange={set('contactName')} placeholder="Dana Whitfield" />
+        </Field>
+
+        <Field label="Designation" hint="Their role at the customer">
+          <Input
+            value={form.contactDesignation}
+            onChange={set('contactDesignation')}
+            placeholder="Head of Procurement"
+          />
         </Field>
 
         <Field label="Contact email" error={errors.contactEmail}>
@@ -283,43 +299,42 @@ export default function DealFormModal({ open, onClose, deal, defaultStage = 'lea
         >
           <div className="space-y-2">
             {form.contacts.map((c, i) => (
-              <div key={i} className="flex gap-2">
+              <div
+                key={i}
+                className="grid grid-cols-1 gap-2 rounded-lg bg-slate-50/60 p-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.3fr_1fr_auto] lg:items-start lg:bg-transparent lg:p-0"
+              >
                 <Input
                   value={c.name}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setForm((f) => {
-                      const next = [...f.contacts];
-                      next[i] = { ...next[i], name: v };
-                      return { ...f, contacts: next };
-                    });
-                  }}
+                  onChange={setContact(i, 'name')}
                   placeholder="Name"
-                  className="w-1/3"
                   aria-label={`Additional contact ${i + 1} name`}
+                />
+                <Input
+                  value={c.designation}
+                  onChange={setContact(i, 'designation')}
+                  placeholder="Designation"
+                  aria-label={`Additional contact ${i + 1} designation`}
                 />
                 <Input
                   type="email"
                   value={c.email}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setForm((f) => {
-                      const next = [...f.contacts];
-                      next[i] = { ...next[i], email: v };
-                      return { ...f, contacts: next };
-                    });
-                    if (errors.contacts) setErrors((p) => ({ ...p, contacts: undefined }));
-                  }}
+                  onChange={setContact(i, 'email')}
                   placeholder="email@company.com"
-                  className="flex-1"
                   aria-label={`Additional contact ${i + 1} email`}
+                />
+                <Input
+                  type="tel"
+                  value={c.phone}
+                  onChange={setContact(i, 'phone')}
+                  placeholder="+1 415 555 0142"
+                  aria-label={`Additional contact ${i + 1} phone`}
                 />
                 <button
                   type="button"
                   onClick={() =>
                     setForm((f) => ({ ...f, contacts: f.contacts.filter((_, x) => x !== i) }))
                   }
-                  className="shrink-0 rounded-lg px-2 text-slate-400 hover:bg-slate-100 hover:text-rose-600"
+                  className="justify-self-end rounded-lg px-2 py-2 text-slate-400 hover:bg-slate-100 hover:text-rose-600 sm:col-span-2 lg:col-span-1 lg:shrink-0"
                   aria-label={`Remove additional contact ${i + 1}`}
                 >
                   <X className="h-4 w-4" aria-hidden />
@@ -331,7 +346,7 @@ export default function DealFormModal({ open, onClose, deal, defaultStage = 'lea
               <button
                 type="button"
                 onClick={() =>
-                  setForm((f) => ({ ...f, contacts: [...f.contacts, { name: '', email: '' }] }))
+                  setForm((f) => ({ ...f, contacts: [...f.contacts, { ...emptyContact }] }))
                 }
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:underline"
               >
@@ -340,10 +355,6 @@ export default function DealFormModal({ open, onClose, deal, defaultStage = 'lea
               </button>
             )}
           </div>
-        </Field>
-
-        <Field label="Tags" hint="Comma separated" className="sm:col-span-2">
-          <Input value={form.tags} onChange={set('tags')} placeholder="enterprise, licence" />
         </Field>
 
         <Field label="Notes" className="sm:col-span-2">

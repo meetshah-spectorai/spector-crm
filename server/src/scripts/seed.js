@@ -1,11 +1,11 @@
 'use strict';
 
 /**
- * Development seed: three teammates, a spread of deals across the pipeline,
- * matching reminders and an activity trail.
+ * Development seed: three teammates, a spread of deals across the pipeline and
+ * matching reminders.
  *
  *   npm run seed            # add demo data, keep anything already there
- *   npm run seed -- --wipe  # delete deals/reminders/activities first
+ *   npm run seed -- --wipe  # delete deals/reminders first
  */
 
 const mongoose = require('mongoose');
@@ -15,8 +15,6 @@ const { connectDB, disconnectDB } = require('../config/db');
 const User = require('../models/User');
 const Deal = require('../models/Deal');
 const Reminder = require('../models/Reminder');
-const Activity = require('../models/Activity');
-const { logActivity } = require('../services/activity.service');
 const stageService = require('../services/stage.service');
 
 const hours = (n) => new Date(Date.now() + n * 60 * 60 * 1000);
@@ -38,13 +36,20 @@ const DEALS = [
     title: 'Acme Corp - Platform licence',
     company: 'Acme Corp',
     contactName: 'Dana Whitfield',
+    contactDesignation: 'VP Engineering',
     contactEmail: 'dana@acme.test',
     contactPhone: '+1 415 555 0142',
+    contacts: [
+      {
+        name: 'Luis Ortega',
+        designation: 'Head of Procurement',
+        email: 'luis@acme.test',
+        phone: '+1 415 555 0188',
+      },
+    ],
     value: 48000,
     stage: 'negotiation',
-    priority: 'high',
     source: 'Referral',
-    tags: ['enterprise', 'licence'],
     expectedCloseDate: days(12),
     description: 'Three-year platform licence for 240 seats. Legal review in progress.',
   },
@@ -52,12 +57,11 @@ const DEALS = [
     title: 'Northwind - Analytics add-on',
     company: 'Northwind Traders',
     contactName: 'Samir Patel',
+    contactDesignation: 'Head of Data',
     contactEmail: 'samir@northwind.test',
     value: 15500,
     stage: 'proposal',
-    priority: 'medium',
     source: 'Inbound',
-    tags: ['upsell'],
     expectedCloseDate: days(20),
     description: 'Proposal sent for the analytics module. Waiting on budget approval.',
   },
@@ -65,60 +69,55 @@ const DEALS = [
     title: 'Globex - Pilot programme',
     company: 'Globex',
     contactName: 'Rae Lindqvist',
+    contactDesignation: 'Operations Manager',
     contactEmail: 'rae@globex.test',
     value: 9000,
     stage: 'qualified',
-    priority: 'medium',
     source: 'Conference',
-    tags: ['pilot'],
     expectedCloseDate: days(35),
   },
   {
     title: 'Initech - Workflow automation',
     company: 'Initech',
     contactName: 'Peter Gibbons',
+    contactDesignation: 'Programmer',
     contactEmail: 'peter@initech.test',
     value: 27000,
     stage: 'lead',
-    priority: 'low',
     source: 'Cold outreach',
-    tags: ['automation'],
     expectedCloseDate: days(60),
   },
   {
     title: 'Umbra Health - Compliance suite',
     company: 'Umbra Health',
     contactName: 'Nadia Rahman',
+    contactDesignation: 'Chief Compliance Officer',
     contactEmail: 'nadia@umbra.test',
     value: 72000,
     stage: 'lead',
-    priority: 'high',
     source: 'Partner',
-    tags: ['healthcare', 'compliance'],
     expectedCloseDate: days(75),
   },
   {
     title: 'Stark Industries - Renewal',
     company: 'Stark Industries',
     contactName: 'Vic Moreau',
+    contactDesignation: 'IT Director',
     contactEmail: 'vic@stark.test',
     value: 36000,
     stage: 'won',
-    priority: 'high',
     source: 'Renewal',
-    tags: ['renewal'],
     expectedCloseDate: days(-3),
   },
   {
     title: 'Soylent - Data migration',
     company: 'Soylent Corp',
     contactName: 'Kim Vega',
+    contactDesignation: 'Platform Lead',
     contactEmail: 'kim@soylent.test',
     value: 11000,
     stage: 'lost',
-    priority: 'low',
     source: 'Inbound',
-    tags: ['services'],
     lostReason: 'Chose an in-house build.',
     expectedCloseDate: days(-10),
   },
@@ -168,8 +167,8 @@ async function seed() {
   await connectDB();
 
   if (wipe) {
-    logger.warn('Wiping deals, reminders and activities...');
-    await Promise.all([Deal.deleteMany({}), Reminder.deleteMany({}), Activity.deleteMany({})]);
+    logger.warn('Wiping deals and reminders...');
+    await Promise.all([Deal.deleteMany({}), Reminder.deleteMany({})]);
   }
 
   // The seed data references the default columns, so make sure they exist.
@@ -213,31 +212,6 @@ async function seed() {
     await deal.save();
     created.set(spec.title, deal);
 
-    await logActivity({
-      type: 'deal.created',
-      message: `Created deal "${deal.title}" at ${stage.label} - USD ${deal.value.toLocaleString('en-US')}`,
-      deal: deal._id,
-      actor: you,
-    });
-
-    if (deal.stage !== 'lead') {
-      await logActivity({
-        type: 'deal.stage_changed',
-        message: `Moved "${deal.title}" from Lead to ${stage.label}`,
-        deal: deal._id,
-        actor: owner,
-        changes: [{ field: 'stage', from: 'lead', to: deal.stage }],
-      });
-    }
-    if (deal.status !== 'open') {
-      await logActivity({
-        type: 'deal.status_changed',
-        message: `Deal marked as ${deal.status.toUpperCase()} - USD ${deal.value.toLocaleString('en-US')}`,
-        deal: deal._id,
-        actor: owner,
-      });
-    }
-
     logger.info(`Created deal: ${deal.title} (${deal.stage}) -> ${owner.name}`);
   }
 
@@ -256,14 +230,6 @@ async function seed() {
       notes: '',
       // Backdated demo tasks should not trigger a burst of emails on first boot.
       notifiedAt: spec.dueAt < new Date() ? new Date() : null,
-    });
-
-    await logActivity({
-      type: 'reminder.created',
-      message: `Next action set: "${reminder.title}", due ${reminder.dueAt.toISOString()}`,
-      deal: deal._id,
-      reminder: reminder._id,
-      actor: you,
     });
 
     logger.info(`Created reminder: ${reminder.title}`);

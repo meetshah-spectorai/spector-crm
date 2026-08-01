@@ -8,36 +8,32 @@ import {
   ArchiveRestore,
   ArrowLeft,
   Bell,
+  BriefcaseBusiness,
   Building2,
   CalendarDays,
   Mail,
   Pencil,
   Phone,
   Plus,
-  Send,
   Tag,
   Trash2,
   User as UserIcon,
 } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
-import ActivityTimeline from '@/components/activity/ActivityTimeline';
 import EmailsTab from '@/components/emails/EmailsTab';
 import ReminderItem from '@/components/reminders/ReminderItem';
 import DealFormModal from '@/components/deals/DealFormModal';
 import ReminderFormModal from '@/components/reminders/ReminderFormModal';
 import {
   Avatar,
-  Badge,
   Button,
   ConfirmDialog,
   EmptyState,
   ErrorState,
   LoadingState,
   Select,
-  Textarea,
 } from '@/components/ui';
 import {
-  addDealNote,
   archiveDeal,
   clearCurrentDeal,
   deleteDeal,
@@ -48,7 +44,7 @@ import {
   updateDeal,
 } from '@/features/deals/dealsSlice';
 import { fetchStages, selectStages } from '@/features/stages/stagesSlice';
-import { colorStyles, PRIORITY_STYLES } from '@/utils/constants';
+import { colorStyles } from '@/utils/constants';
 import { formatDate, formatDateTime, formatMoney } from '@/utils/format';
 
 function DetailRow({ icon: Icon, label, children }) {
@@ -72,13 +68,10 @@ export default function DealDetail() {
   const status = useSelector(selectCurrentStatus);
   const stages = useSelector(selectStages);
 
-  const [note, setNote] = useState('');
-  const [noteSaving, setNoteSaving] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [tab, setTab] = useState('activity');
 
   useEffect(() => {
     dispatch(fetchDeal(id));
@@ -107,7 +100,7 @@ export default function DealDetail() {
     );
   }
 
-  const { deal, activities, reminders } = current;
+  const { deal, reminders } = current;
   const currentStage = stages.find((s) => s.key === deal.stage);
   const stageStyle = colorStyles(currentStage?.color);
   const pending = reminders.filter((r) => r.status === 'pending');
@@ -120,21 +113,6 @@ export default function DealDetail() {
       toast.success(`Moved to ${stages.find((s) => s.key === stage)?.label || stage}`);
     } catch (message) {
       toast.error(message || 'Could not change the stage');
-    }
-  };
-
-  const handleAddNote = async (e) => {
-    e.preventDefault();
-    if (!note.trim()) return;
-    setNoteSaving(true);
-    try {
-      await dispatch(addDealNote({ id: deal._id, note: note.trim() })).unwrap();
-      setNote('');
-      toast.success('Note added');
-    } catch (message) {
-      toast.error(message || 'Could not add the note');
-    } finally {
-      setNoteSaving(false);
     }
   };
 
@@ -191,12 +169,9 @@ export default function DealDetail() {
         {/* ------------------------------------------------- Summary column */}
         <div className="space-y-4 lg:col-span-1">
           <section className="card p-4">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold tabular-nums text-slate-900">
-                {formatMoney(deal.value, deal.currency)}
-              </p>
-              <Badge className={PRIORITY_STYLES[deal.priority]}>{deal.priority}</Badge>
-            </div>
+            <p className="text-2xl font-bold tabular-nums text-slate-900">
+              {formatMoney(deal.value, deal.currency)}
+            </p>
 
             <p className="mt-1 text-xs text-slate-500">
               Weighted {formatMoney(deal.weightedValue, deal.currency)} at {deal.probability}%
@@ -248,6 +223,9 @@ export default function DealDetail() {
               <DetailRow icon={UserIcon} label="Contact">
                 {deal.contactName}
               </DetailRow>
+              <DetailRow icon={BriefcaseBusiness} label="Designation">
+                {deal.contactDesignation}
+              </DetailRow>
               <DetailRow icon={Mail} label="Email">
                 {deal.contactEmail ? (
                   <a href={`mailto:${deal.contactEmail}`} className="text-brand-600 hover:underline">
@@ -273,34 +251,37 @@ export default function DealDetail() {
             {deal.contacts?.length > 0 && (
               <div className="mt-3 border-t border-slate-100 pt-3">
                 <p className="mb-1.5 text-xs text-slate-500">Additional contacts</p>
-                <ul className="space-y-1">
+                <ul className="space-y-1.5">
                   {deal.contacts.map((c) => (
-                    <li key={c.email} className="flex items-center gap-2 text-sm">
+                    <li key={c.email} className="flex items-start gap-2 text-sm">
                       <Avatar name={c.name || c.email} size="xs" />
-                      <span className="min-w-0 flex-1 truncate">
-                        <span className="font-medium text-slate-800">{c.name || c.email}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-baseline gap-x-1.5">
+                          <span className="font-medium text-slate-800">{c.name || c.email}</span>
+                          {c.designation && (
+                            <span className="text-xs text-slate-500">{c.designation}</span>
+                          )}
+                        </span>
                         {c.name && (
                           <a
                             href={`mailto:${c.email}`}
-                            className="ml-1.5 text-xs text-brand-600 hover:underline"
+                            className="block truncate text-xs text-brand-600 hover:underline"
                           >
                             {c.email}
+                          </a>
+                        )}
+                        {c.phone && (
+                          <a
+                            href={`tel:${c.phone}`}
+                            className="block truncate text-xs text-brand-600 hover:underline"
+                          >
+                            {c.phone}
                           </a>
                         )}
                       </span>
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
-
-            {deal.tags?.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
-                {deal.tags.map((tag) => (
-                  <Badge key={tag} className="bg-slate-100 text-slate-600">
-                    {tag}
-                  </Badge>
-                ))}
               </div>
             )}
 
@@ -406,56 +387,15 @@ export default function DealDetail() {
           </section>
         </div>
 
-        {/* ------------------------------------- Activity / notes column */}
+        {/* ---------------------------------------------- Emails column */}
         <section className="card flex flex-col lg:col-span-2">
           <div className="flex gap-1 border-b border-slate-200 px-4 pt-3">
-            {[
-              { key: 'activity', label: `Activity log (${activities.length})` },
-              { key: 'emails', label: 'Emails' },
-              { key: 'note', label: 'Add a note' },
-            ].map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={clsx(
-                  '-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-semibold transition-colors',
-                  tab === t.key
-                    ? 'border-brand-600 text-brand-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
+            <span className="-mb-px border-b-2 border-brand-600 px-3 py-2 text-sm font-semibold text-brand-700">
+              Emails
+            </span>
           </div>
 
-          {tab === 'emails' ? (
-            <EmailsTab deal={deal} />
-          ) : tab === 'note' ? (
-            <form onSubmit={handleAddNote} className="p-4">
-              <Textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={5}
-                placeholder="What happened on the call? What did they ask for?"
-                autoFocus
-              />
-              <div className="mt-3 flex items-center justify-between gap-2">
-                <p className="text-xs text-slate-500">
-                  Notes are timestamped and appear in the activity log.
-                </p>
-                <Button type="submit" loading={noteSaving} disabled={!note.trim()}>
-                  <Send className="h-4 w-4" aria-hidden />
-                  Add note
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <div className="max-h-[70vh] overflow-y-auto p-4 scrollbar-thin">
-              <ActivityTimeline activities={activities} />
-            </div>
-          )}
+          <EmailsTab deal={deal} />
         </section>
       </div>
 
@@ -477,7 +417,7 @@ export default function DealDetail() {
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDelete}
         title="Delete this deal?"
-        message={`"${deal.title}" and its reminders will be permanently removed. The activity log keeps an audit record.`}
+        message={`"${deal.title}" and its reminders will be permanently removed. This cannot be undone.`}
         confirmLabel="Delete deal"
       />
     </>

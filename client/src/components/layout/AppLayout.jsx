@@ -3,7 +3,6 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import clsx from 'clsx';
 import {
-  Activity,
   CheckSquare,
   KanbanSquare,
   LayoutDashboard,
@@ -20,7 +19,6 @@ const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/deals', label: 'Deals', icon: KanbanSquare },
   { to: '/tasks', label: 'To-do list', icon: CheckSquare, badge: 'tasks' },
-  { to: '/activity', label: 'Activity log', icon: Activity },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 

@@ -47,7 +47,6 @@ router.use('/deals', require('./deal.routes'));
 router.use('/reminders', require('./reminder.routes'));
 router.use('/emails', require('./email.routes'));
 router.use('/mail-accounts', require('./mailAccount.routes'));
-router.use('/activities', require('./activity.routes'));
 router.use('/users', require('./user.routes'));
 
 module.exports = router;

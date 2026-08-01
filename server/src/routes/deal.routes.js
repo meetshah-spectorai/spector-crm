@@ -9,7 +9,6 @@ const {
   updateDealSchema,
   moveDealSchema,
   listDealsSchema,
-  noteSchema,
   idParamSchema,
 } = require('../validators/deal.validator');
 
@@ -39,8 +38,6 @@ router.patch(
   validate(moveDealSchema),
   ctrl.moveDeal
 );
-
-router.post('/:id/notes', validate(idParamSchema, 'params'), validate(noteSchema), ctrl.addNote);
 
 router.patch('/:id/archive', validate(idParamSchema, 'params'), ctrl.archiveDeal);
 router.patch('/:id/restore', validate(idParamSchema, 'params'), ctrl.restoreDeal);

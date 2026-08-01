@@ -1,24 +1,14 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  AlarmClock,
-  ArrowRight,
-  CheckSquare,
-  History,
-  Target,
-  TrendingUp,
-  Trophy,
-} from 'lucide-react';
+import { AlarmClock, ArrowRight, CheckSquare, Target, TrendingUp, Trophy } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import StatTile from '@/components/dashboard/StatTile';
 import PipelineByStageChart from '@/components/dashboard/PipelineByStageChart';
 import ReminderItem from '@/components/reminders/ReminderItem';
-import ActivityTimeline from '@/components/activity/ActivityTimeline';
 import { EmptyState, LoadingState } from '@/components/ui';
 import { fetchStats, selectStats } from '@/features/deals/dealsSlice';
 import { fetchReminders, selectReminders } from '@/features/reminders/remindersSlice';
-import { fetchActivities, selectActivities } from '@/features/activities/activitiesSlice';
 import { selectUser } from '@/features/auth/authSlice';
 import { formatMoney } from '@/utils/format';
 
@@ -35,14 +25,12 @@ export default function Dashboard() {
   const user = useSelector(selectUser);
   const stats = useSelector(selectStats);
   const reminders = useSelector(selectReminders);
-  const activities = useSelector(selectActivities);
 
   useEffect(() => {
     dispatch(fetchStats());
     // All pending, soonest first — so anything overdue surfaces at the top
     // rather than being filtered out by a "next 7 days" window.
     dispatch(fetchReminders({ status: 'pending', assignedTo: 'me', sort: 'dueAt', limit: 10 }));
-    dispatch(fetchActivities({ limit: 8 }));
   }, [dispatch]);
 
   if (!stats) {
@@ -143,29 +131,6 @@ export default function Dashboard() {
             )}
           </section>
         </div>
-
-        <section className="card p-4 sm:p-5">
-          <header className="mb-2 flex items-center justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">Recent activity</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Every change across the deals you can see
-              </p>
-            </div>
-            <Link
-              to="/activity"
-              className="shrink-0 text-xs font-semibold text-brand-600 hover:underline"
-            >
-              Full log
-            </Link>
-          </header>
-
-          {activities.length === 0 ? (
-            <EmptyState icon={History} title="No activity yet" className="py-8" />
-          ) : (
-            <ActivityTimeline activities={activities} showDeal />
-          )}
-        </section>
       </div>
     </>
   );

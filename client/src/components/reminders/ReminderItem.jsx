@@ -195,7 +195,7 @@ export default function ReminderItem({ reminder, showDeal = true, onEdit, onChan
           run(deleteReminder(reminder._id), 'Task deleted');
         }}
         title="Delete this task?"
-        message={`"${reminder.title}" will be removed. The activity log keeps a record of it.`}
+        message={`"${reminder.title}" will be permanently removed.`}
         confirmLabel="Delete"
         loading={busy}
       />

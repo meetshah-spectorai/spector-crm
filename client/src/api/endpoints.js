@@ -27,7 +27,6 @@ export const dealsApi = {
   create: (payload) => api.post('/deals', payload).then((r) => r.data.data),
   update: (id, payload) => api.patch(`/deals/${id}`, payload).then((r) => r.data.data),
   move: (id, payload) => api.patch(`/deals/${id}/move`, payload).then((r) => r.data.data),
-  addNote: (id, note) => api.post(`/deals/${id}/notes`, { note }).then((r) => r.data.data),
   archive: (id) => api.patch(`/deals/${id}/archive`).then((r) => r.data.data),
   restore: (id) => api.patch(`/deals/${id}/restore`).then((r) => r.data.data),
   remove: (id) => api.delete(`/deals/${id}`).then((r) => r.data),
@@ -56,11 +55,6 @@ export const mailAccountsApi = {
   update: (id, payload) => api.patch(`/mail-accounts/${id}`, payload).then((r) => r.data.data),
   sync: (id) => api.post(`/mail-accounts/${id}/sync`).then((r) => r.data),
   remove: (id) => api.delete(`/mail-accounts/${id}`).then((r) => r.data),
-};
-
-export const activitiesApi = {
-  list: (params) => api.get('/activities', { params }).then((r) => r.data),
-  forDeal: (id) => api.get(`/activities/deal/${id}`).then((r) => r.data.data),
 };
 
 export const usersApi = {

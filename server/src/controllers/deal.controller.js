@@ -3,14 +3,12 @@
 const mongoose = require('mongoose');
 const Deal = require('../models/Deal');
 const Reminder = require('../models/Reminder');
-const Activity = require('../models/Activity');
 const User = require('../models/User');
 const ApiError = require('../utils/ApiError');
 const asyncHandler = require('../utils/asyncHandler');
-const { logActivity, diffDeal } = require('../services/activity.service');
 const stageService = require('../services/stage.service');
 const { withDealVirtuals, withReminderVirtuals } = require('../utils/decorate');
-const { REMINDER_STATUS, TRACKED_DEAL_FIELDS } = require('../utils/constants');
+const { REMINDER_STATUS, UPDATABLE_DEAL_FIELDS } = require('../utils/constants');
 
 const OWNER_FIELDS = 'name email';
 const ORDER_STEP = 1000;
@@ -27,9 +25,6 @@ const SORTS = {
 /** Escapes regex metacharacters so "C++ (v2)" is a search, not a syntax error. */
 const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Reads a column's display name out of a key → stage map, for log messages. */
-const labelOf = (map, key) => (map.get(key) || { label: key }).label;
-
 /**
  * Turns validated query params into a Mongo filter. The whole pipeline is shared,
  * so there is no row-level scoping — `owner` is a filter the user chooses, not a
@@ -43,8 +38,6 @@ function buildDealFilter(query) {
 
   if (query.stage) filter.stage = query.stage;
   if (query.status) filter.status = query.status;
-  if (query.priority) filter.priority = query.priority;
-  if (query.tag) filter.tags = query.tag;
 
   if (query.minValue !== undefined || query.maxValue !== undefined) {
     filter.value = {};
@@ -276,17 +269,14 @@ const getDeal = asyncHandler(async (req, res) => {
 
   if (!deal) throw ApiError.notFound('Deal not found');
 
-  const [activities, reminders] = await Promise.all([
-    Activity.find({ deal: deal._id }).sort({ createdAt: -1 }).limit(100).lean(),
-    Reminder.find({ deal: deal._id })
-      .sort({ status: 1, dueAt: 1 })
-      .populate('assignedTo', OWNER_FIELDS)
-      .lean(),
-  ]);
+  const reminders = await Reminder.find({ deal: deal._id })
+    .sort({ status: 1, dueAt: 1 })
+    .populate('assignedTo', OWNER_FIELDS)
+    .lean();
 
   res.json({
     success: true,
-    data: { deal: deal.toJSON(), activities, reminders: reminders.map(withReminderVirtuals) },
+    data: { deal: deal.toJSON(), reminders: reminders.map(withReminderVirtuals) },
   });
 });
 
@@ -320,14 +310,6 @@ const createDeal = asyncHandler(async (req, res) => {
 
   await deal.save();
 
-  await logActivity({
-    type: 'deal.created',
-    message: `Created deal "${deal.title}" at ${stage.label} · ${deal.currency} ${deal.value.toLocaleString('en-US')}`,
-    deal: deal._id,
-    actor: req.user,
-    meta: { stage: deal.stage, value: deal.value, currency: deal.currency },
-  });
-
   await deal.populate('owner', OWNER_FIELDS);
   res.status(201).json({ success: true, data: deal.toJSON() });
 });
@@ -337,8 +319,6 @@ const updateDeal = asyncHandler(async (req, res) => {
   const deal = await Deal.findById(req.params.id);
   if (!deal) throw ApiError.notFound('Deal not found');
 
-  const before = deal.toObject();
-
   if (req.body.owner !== undefined) {
     const owner = await User.findById(req.body.owner).select('_id');
     if (!owner) throw ApiError.badRequest('Assigned owner does not exist');
@@ -347,9 +327,9 @@ const updateDeal = asyncHandler(async (req, res) => {
   const stageChanged = req.body.stage !== undefined && req.body.stage !== deal.stage;
   const stage = stageChanged ? await stageService.resolveStage(req.body.stage) : null;
 
-  // Whitelist: only fields we track are assignable, so no mass-assignment.
+  // Whitelist: only known fields are assignable, so no mass-assignment.
   Object.entries(req.body).forEach(([key, value]) => {
-    if (key !== 'status' && key !== 'stage' && TRACKED_DEAL_FIELDS.includes(key)) {
+    if (key !== 'status' && key !== 'stage' && UPDATABLE_DEAL_FIELDS.includes(key)) {
       deal[key] = value;
     }
   });
@@ -368,34 +348,6 @@ const updateDeal = asyncHandler(async (req, res) => {
 
   await deal.save();
 
-  const stageNames = await stageService.stageMap();
-  const changes = diffDeal(before, deal.toObject());
-  if (changes.length) {
-    const summary = changes
-      .map((c) => {
-        if (c.field === 'stage') {
-          return `stage ${labelOf(stageNames, c.from)} → ${labelOf(stageNames, c.to)}`;
-        }
-        if (c.field === 'value') return `value ${before.currency} ${Number(c.from).toLocaleString('en-US')} → ${deal.currency} ${Number(c.to).toLocaleString('en-US')}`;
-        return c.field;
-      })
-      .join(', ');
-
-    await logActivity({
-      type: changes.some((c) => c.field === 'stage')
-        ? 'deal.stage_changed'
-        : changes.some((c) => c.field === 'value')
-          ? 'deal.value_changed'
-          : changes.some((c) => c.field === 'owner')
-            ? 'deal.owner_changed'
-            : 'deal.updated',
-      message: `Updated ${summary}`.slice(0, 500),
-      deal: deal._id,
-      actor: req.user,
-      changes,
-    });
-  }
-
   await deal.populate('owner', OWNER_FIELDS);
   res.json({ success: true, data: deal.toJSON() });
 });
@@ -412,7 +364,6 @@ const moveDeal = asyncHandler(async (req, res) => {
   if (deal.archived) throw ApiError.badRequest('Restore the deal before moving it');
 
   const stage = await stageService.resolveStage(stageKey);
-  const fromStage = deal.stage;
 
   // Siblings already in the destination column, excluding this deal.
   const siblings = await Deal.find({
@@ -444,45 +395,8 @@ const moveDeal = asyncHandler(async (req, res) => {
     await reindexStage(stage.key);
   }
 
-  if (fromStage !== stage.key) {
-    const stageNames = await stageService.stageMap();
-    await logActivity({
-      type: 'deal.stage_changed',
-      message: `Moved "${deal.title}" from ${labelOf(stageNames, fromStage)} to ${stage.label}`,
-      deal: deal._id,
-      actor: req.user,
-      changes: [{ field: 'stage', from: fromStage, to: stage.key }],
-      meta: { status: deal.status },
-    });
-
-    if (deal.status !== 'open') {
-      await logActivity({
-        type: 'deal.status_changed',
-        message: `Deal marked as ${deal.status.toUpperCase()} · ${deal.currency} ${deal.value.toLocaleString('en-US')}`,
-        deal: deal._id,
-        actor: req.user,
-        changes: [{ field: 'status', from: 'open', to: deal.status }],
-      });
-    }
-  }
-
   const fresh = await Deal.findById(deal._id).populate('owner', OWNER_FIELDS);
   res.json({ success: true, data: fresh.toJSON() });
-});
-
-/** POST /api/deals/:id/notes — a note is an activity entry, nothing more. */
-const addNote = asyncHandler(async (req, res) => {
-  const deal = await Deal.findById(req.params.id).select('_id title');
-  if (!deal) throw ApiError.notFound('Deal not found');
-
-  const activity = await logActivity({
-    type: 'note.added',
-    message: req.body.note,
-    deal: deal._id,
-    actor: req.user,
-  });
-
-  res.status(201).json({ success: true, data: activity });
 });
 
 /** Shared handler for PATCH /:id/archive and PATCH /:id/restore. */
@@ -502,13 +416,6 @@ const setArchived = (archived) =>
       );
     }
 
-    await logActivity({
-      type: archived ? 'deal.archived' : 'deal.restored',
-      message: `${archived ? 'Archived' : 'Restored'} "${deal.title}"`,
-      deal: deal._id,
-      actor: req.user,
-    });
-
     await deal.populate('owner', OWNER_FIELDS);
     res.json({ success: true, data: deal.toJSON() });
   });
@@ -516,23 +423,13 @@ const setArchived = (archived) =>
 const archiveDeal = setArchived(true);
 const restoreDeal = setArchived(false);
 
-/**
- * DELETE /api/deals/:id — hard delete.
- * Reminders go with it; the activity log survives as a record.
- */
+/** DELETE /api/deals/:id — hard delete. Its reminders go with it. */
 const deleteDeal = asyncHandler(async (req, res) => {
   const deal = await Deal.findById(req.params.id);
   if (!deal) throw ApiError.notFound('Deal not found');
 
   await Reminder.deleteMany({ deal: deal._id });
   await deal.deleteOne();
-
-  await logActivity({
-    type: 'deal.deleted',
-    message: `Deleted deal "${deal.title}"`,
-    actor: req.user,
-    meta: { dealId: String(deal._id), title: deal.title, value: deal.value },
-  });
 
   res.json({ success: true, message: 'Deal deleted' });
 });
@@ -545,7 +442,6 @@ module.exports = {
   createDeal,
   updateDeal,
   moveDeal,
-  addNote,
   archiveDeal,
   restoreDeal,
   deleteDeal,

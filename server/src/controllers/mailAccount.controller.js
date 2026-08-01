@@ -110,8 +110,8 @@ const updateAccount = asyncHandler(async (req, res) => {
 
 /**
  * DELETE /api/mail-accounts/:id — disconnect.
- * Removes the stored credential and every message synced from that mailbox; the
- * activity-log entries stay, since they are the deal's history.
+ * Removes the stored credential and every message synced from that mailbox.
+ * Nothing in the mailbox itself is touched.
  */
 const deleteAccount = asyncHandler(async (req, res) => {
   const account = await MailAccount.findById(req.params.id);

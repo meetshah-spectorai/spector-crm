@@ -36,6 +36,7 @@ export const STAGE_OUTCOMES = [
 
 export const OUTCOME_LABELS = Object.fromEntries(STAGE_OUTCOMES.map((o) => [o.key, o.label]));
 
+/** Task urgency. Deals do not carry a priority — only reminders do. */
 export const PRIORITIES = [
   { key: 'low', label: 'Low', badge: 'bg-slate-100 text-slate-600' },
   { key: 'medium', label: 'Medium', badge: 'bg-sky-100 text-sky-700' },
@@ -45,38 +46,3 @@ export const PRIORITIES = [
 export const PRIORITY_STYLES = Object.fromEntries(PRIORITIES.map((p) => [p.key, p.badge]));
 
 export const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR', 'AUD', 'CAD', 'SGD', 'AED', 'JPY'];
-
-/** Icon + colour per activity type, used by the timeline. */
-export const ACTIVITY_STYLES = {
-  'deal.created': { icon: 'Plus', tone: 'text-brand-600 bg-brand-50' },
-  'deal.updated': { icon: 'Pencil', tone: 'text-slate-600 bg-slate-100' },
-  'deal.stage_changed': { icon: 'ArrowRightLeft', tone: 'text-violet-600 bg-violet-50' },
-  'deal.value_changed': { icon: 'DollarSign', tone: 'text-emerald-600 bg-emerald-50' },
-  'deal.owner_changed': { icon: 'UserRound', tone: 'text-sky-600 bg-sky-50' },
-  'deal.status_changed': { icon: 'Flag', tone: 'text-amber-600 bg-amber-50' },
-  'deal.archived': { icon: 'Archive', tone: 'text-slate-600 bg-slate-100' },
-  'deal.restored': { icon: 'ArchiveRestore', tone: 'text-slate-600 bg-slate-100' },
-  'deal.deleted': { icon: 'Trash2', tone: 'text-rose-600 bg-rose-50' },
-  'note.added': { icon: 'MessageSquare', tone: 'text-slate-600 bg-slate-100' },
-  'reminder.created': { icon: 'BellPlus', tone: 'text-brand-600 bg-brand-50' },
-  'reminder.updated': { icon: 'Bell', tone: 'text-slate-600 bg-slate-100' },
-  'reminder.completed': { icon: 'CheckCircle2', tone: 'text-emerald-600 bg-emerald-50' },
-  'reminder.cancelled': { icon: 'BellOff', tone: 'text-slate-500 bg-slate-100' },
-  'reminder.deleted': { icon: 'Trash2', tone: 'text-rose-600 bg-rose-50' },
-  'reminder.notified': { icon: 'Mail', tone: 'text-sky-600 bg-sky-50' },
-  'email.sent': { icon: 'Send', tone: 'text-brand-600 bg-brand-50' },
-  'email.received': { icon: 'Inbox', tone: 'text-emerald-600 bg-emerald-50' },
-  'stage.created': { icon: 'Columns3', tone: 'text-brand-600 bg-brand-50' },
-  'stage.updated': { icon: 'Columns3', tone: 'text-slate-600 bg-slate-100' },
-  'user.registered': { icon: 'UserPlus', tone: 'text-brand-600 bg-brand-50' },
-  'user.login': { icon: 'LogIn', tone: 'text-slate-500 bg-slate-100' },
-  'user.deleted': { icon: 'UserMinus', tone: 'text-rose-600 bg-rose-50' },
-};
-
-export const ACTIVITY_TYPE_OPTIONS = Object.keys(ACTIVITY_STYLES).map((key) => ({
-  key,
-  label: key
-    .replace('.', ' · ')
-    .replace(/_/g, ' ')
-    .replace(/^./, (c) => c.toUpperCase()),
-}));

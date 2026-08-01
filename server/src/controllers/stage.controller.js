@@ -4,7 +4,6 @@ const Stage = require('../models/Stage');
 const Deal = require('../models/Deal');
 const ApiError = require('../utils/ApiError');
 const asyncHandler = require('../utils/asyncHandler');
-const { logActivity } = require('../services/activity.service');
 const stageService = require('../services/stage.service');
 
 /** Adds the live deal count to each column, so the UI can warn before changes. */
@@ -41,13 +40,6 @@ const createStage = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   });
 
-  await logActivity({
-    type: 'stage.created',
-    message: `Added pipeline column "${stage.label}"`,
-    actor: req.user,
-    meta: { stageKey: stage.key, outcome: stage.outcome },
-  });
-
   res.status(201).json({ success: true, data: { ...stage.toObject(), dealCount: 0 } });
 });
 
@@ -59,7 +51,7 @@ const updateStage = asyncHandler(async (req, res) => {
   const stage = await Stage.findById(req.params.id);
   if (!stage) throw ApiError.notFound('Column not found');
 
-  const before = { label: stage.label, probability: stage.probability, outcome: stage.outcome };
+  // Tracked only so we know whether the deals in this column need a resync.
   const changes = [];
 
   if (req.body.label !== undefined && req.body.label !== stage.label) {
@@ -80,27 +72,12 @@ const updateStage = asyncHandler(async (req, res) => {
 
   // Changing what a column *means* has to be pushed onto the deals sitting in it,
   // otherwise their status would silently disagree with the board.
-  let resynced = 0;
   if (changes.some((c) => c.field === 'outcome')) {
     const deals = await Deal.find({ stage: stage.key });
     for (const deal of deals) {
       stageService.applyStageToDeal(deal, stage.toObject());
       await deal.save();
-      resynced += 1;
     }
-  }
-
-  if (changes.length) {
-    await logActivity({
-      type: 'stage.updated',
-      message:
-        changes.some((c) => c.field === 'label')
-          ? `Renamed pipeline column "${before.label}" to "${stage.label}"`
-          : `Updated pipeline column "${stage.label}"`,
-      actor: req.user,
-      changes,
-      meta: { stageKey: stage.key, dealsResynced: resynced },
-    });
   }
 
   const dealCount = await Deal.countDocuments({ stage: stage.key, archived: false });

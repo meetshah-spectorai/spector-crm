@@ -11,7 +11,7 @@ const initialState = {
   stats: null,
   statsStatus: 'idle',
 
-  current: null, // { deal, activities, reminders }
+  current: null, // { deal, reminders }
   currentStatus: 'idle',
   currentError: null,
 
@@ -65,11 +65,6 @@ export const moveDeal = createAsyncThunk(
       return rejectWithValue(errorMessage(err));
     }
   }
-);
-
-export const addDealNote = createAsyncThunk(
-  'deals/addNote',
-  withError(({ id, note }) => dealsApi.addNote(id, note))
 );
 
 export const archiveDeal = createAsyncThunk(
@@ -226,10 +221,6 @@ const dealsSlice = createSlice({
         if (column) recalcColumn(column);
       })
 
-      .addCase(addDealNote.fulfilled, (state, action) => {
-        if (state.current) state.current.activities.unshift(action.payload);
-      })
-
       .addCase(deleteDeal.fulfilled, (state, action) => {
         state.columns.forEach((column) => {
           const i = column.deals.findIndex((d) => d._id === action.payload);
@@ -263,7 +254,7 @@ const dealsSlice = createSlice({
       .addMatcher(
         (action) =>
           action.type.startsWith('deals/') &&
-          ['create', 'update', 'archive', 'restore', 'delete', 'addNote'].some((op) =>
+          ['create', 'update', 'archive', 'restore', 'delete'].some((op) =>
             action.type.includes(`deals/${op}/`)
           ),
         (state, action) => {

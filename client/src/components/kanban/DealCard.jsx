@@ -3,9 +3,9 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import clsx from 'clsx';
 import { Bell, Building2, CalendarDays, GripVertical } from 'lucide-react';
-import { Avatar, Badge } from '@/components/ui';
+import { Avatar } from '@/components/ui';
 import { formatDueDate, formatMoney, formatDate } from '@/utils/format';
-import { colorStyles, PRIORITY_STYLES } from '@/utils/constants';
+import { colorStyles } from '@/utils/constants';
 
 /**
  * Presentational card. Shared by the sortable card and the drag overlay.
@@ -59,9 +59,12 @@ export const DealCardBody = memo(function DealCardBody({
           <span className="text-sm font-bold tabular-nums text-slate-900">
             {formatMoney(deal.value, deal.currency)}
           </span>
-          <Badge className={PRIORITY_STYLES[deal.priority] || PRIORITY_STYLES.medium}>
-            {deal.priority}
-          </Badge>
+          {deal.contactName && (
+            <span className="min-w-0 truncate text-[11px] text-slate-500">
+              {deal.contactName}
+              {deal.contactDesignation && ` · ${deal.contactDesignation}`}
+            </span>
+          )}
         </div>
 
         {deal.nextAction && (

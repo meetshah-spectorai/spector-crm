@@ -2,7 +2,7 @@
   "name": "crm-server",
   "version": "1.0.0",
   "private": true,
-  "description": "REST API for the MERN CRM (deals, pipeline, activity log, reminders, notifications)",
+  "description": "REST API for the MERN CRM (deals, pipeline, reminders, notifications)",
   "type": "commonjs",
   "main": "src/server.js",
   "engines": {

@@ -67,8 +67,7 @@ export default function DeleteAccountCard() {
       <p className="mt-1 text-xs leading-relaxed text-rose-800/80">
         Permanently deletes <span className="font-semibold">{user?.email}</span>. Your deals and
         open tasks are handed to a teammate you choose; any mailbox you connected is disconnected
-        and its synced emails removed. Entries you created in the activity log stay, so each deal
-        keeps its history. This cannot be undone.
+        and its synced emails removed. This cannot be undone.
       </p>
 
       <div className="mt-3">

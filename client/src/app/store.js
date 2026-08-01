@@ -4,7 +4,6 @@ import dealsReducer from '@/features/deals/dealsSlice';
 import stagesReducer from '@/features/stages/stagesSlice';
 import remindersReducer from '@/features/reminders/remindersSlice';
 import emailsReducer from '@/features/emails/emailsSlice';
-import activitiesReducer from '@/features/activities/activitiesSlice';
 import usersReducer from '@/features/users/usersSlice';
 import { setSessionExpiredHandler } from '@/api/client';
 
@@ -15,7 +14,6 @@ export const store = configureStore({
     stages: stagesReducer,
     reminders: remindersReducer,
     emails: emailsReducer,
-    activities: activitiesReducer,
     users: usersReducer,
   },
   middleware: (getDefaultMiddleware) =>

@@ -1,7 +1,7 @@
 'use strict';
 
 const { z } = require('zod');
-const { DEAL_STATUS_LIST, PRIORITIES, CURRENCIES } = require('../utils/constants');
+const { DEAL_STATUS_LIST, CURRENCIES } = require('../utils/constants');
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
 
@@ -30,6 +30,7 @@ const createDealSchema = z.object({
   title: z.string().trim().min(2, 'Title must be at least 2 characters').max(140),
   company: z.string().trim().max(140).optional().default(''),
   contactName: z.string().trim().max(120).optional().default(''),
+  contactDesignation: z.string().trim().max(120).optional().default(''),
   contactEmail: z
     .union([z.string().trim().toLowerCase().email('Invalid contact email'), z.literal('')])
     .optional()
@@ -41,7 +42,9 @@ const createDealSchema = z.object({
     .array(
       z.object({
         name: z.string().trim().max(120).optional().default(''),
+        designation: z.string().trim().max(120).optional().default(''),
         email: z.string().trim().toLowerCase().email('Invalid contact email'),
+        phone: z.string().trim().max(40).optional().default(''),
       })
     )
     .max(20)
@@ -51,13 +54,11 @@ const createDealSchema = z.object({
   currency: z.enum(CURRENCIES).default('USD'),
 
   stage: stageKey.optional(), // defaults to the first column on the board
-  priority: z.enum(PRIORITIES).default('medium'),
   probability: z.coerce.number().min(0).max(100).optional(),
 
   owner: objectId.optional(), // defaults to the caller
   source: z.string().trim().max(60).optional().default(''),
   description: z.string().trim().max(4000).optional().default(''),
-  tags: z.array(z.string().trim().min(1).max(30)).max(20).optional().default([]),
   expectedCloseDate: optionalDate,
   lostReason: z.string().trim().max(500).optional().default(''),
 });
@@ -78,9 +79,7 @@ const listDealsSchema = z.object({
   stage: stageKey.optional(),
   status: z.enum(DEAL_STATUS_LIST).optional(),
   owner: z.union([objectId, z.literal('me')]).optional(),
-  priority: z.enum(PRIORITIES).optional(),
   search: z.string().trim().max(120).optional(),
-  tag: z.string().trim().max(30).optional(),
   archived: z
     .enum(['true', 'false', 'all'])
     .optional()
@@ -95,10 +94,6 @@ const listDealsSchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional().default(100),
 });
 
-const noteSchema = z.object({
-  note: z.string().trim().min(1, 'Note cannot be empty').max(2000),
-});
-
 const idParamSchema = z.object({ id: objectId });
 
 module.exports = {
@@ -108,6 +103,5 @@ module.exports = {
   updateDealSchema,
   moveDealSchema,
   listDealsSchema,
-  noteSchema,
   idParamSchema,
 };

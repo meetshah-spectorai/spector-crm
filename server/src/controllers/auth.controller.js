@@ -8,7 +8,6 @@ const EmailMessage = require('../models/EmailMessage');
 const ApiError = require('../utils/ApiError');
 const asyncHandler = require('../utils/asyncHandler');
 const { REMINDER_STATUS } = require('../utils/constants');
-const { logActivity } = require('../services/activity.service');
 const {
   REFRESH_COOKIE,
   signAccessToken,
@@ -34,12 +33,6 @@ const register = asyncHandler(async (req, res) => {
 
   const user = await User.create({ name, email, password });
 
-  await logActivity({
-    type: 'user.registered',
-    message: `${user.name} joined the team`,
-    actor: user,
-  });
-
   const accessToken = issueSession(res, user);
   res.status(201).json({ success: true, data: { user, accessToken } });
 });
@@ -56,8 +49,6 @@ const login = asyncHandler(async (req, res) => {
 
   user.lastLoginAt = new Date();
   await user.save({ validateBeforeSave: false });
-
-  await logActivity({ type: 'user.login', message: `${user.name} signed in`, actor: user });
 
   const accessToken = issueSession(res, user);
   res.json({ success: true, data: { user: user.toJSON(), accessToken } });
@@ -162,11 +153,9 @@ const deleteMyAccount = asyncHandler(async (req, res) => {
     );
   }
 
-  const [ownedDeals, createdDeals, openTasks, mailboxes] = await Promise.all([
+  const [ownedDeals, openTasks] = await Promise.all([
     Deal.countDocuments({ owner: user._id }),
-    Deal.countDocuments({ createdBy: user._id }),
     Reminder.countDocuments({ assignedTo: user._id, status: REMINDER_STATUS.PENDING }),
-    MailAccount.countDocuments({ user: user._id }),
   ]);
 
   const needsTransfer = ownedDeals > 0 || openTasks > 0;
@@ -209,26 +198,7 @@ const deleteMyAccount = asyncHandler(async (req, res) => {
     await MailAccount.deleteMany({ _id: { $in: ids } });
   }
 
-  const name = user.name;
   await user.deleteOne();
-
-  // The activity log keeps its history; `actor` is now a dangling ref, which is
-  // why every entry also stores actorName at write time.
-  await logActivity({
-    type: 'user.deleted',
-    message: heir
-      ? `${name} deleted their account — deals and tasks transferred to ${heir.name}`
-      : `${name} deleted their account`,
-    actor: null,
-    meta: {
-      email: user.email,
-      transferredTo: heir ? String(heir._id) : null,
-      deals: ownedDeals,
-      createdDeals,
-      tasks: openTasks,
-      mailboxesRemoved: mailboxes,
-    },
-  });
 
   clearRefreshCookie(res);
   res.json({

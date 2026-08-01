@@ -10,7 +10,6 @@ import Dashboard from '@/pages/Dashboard';
 import Deals from '@/pages/Deals';
 import DealDetail from '@/pages/DealDetail';
 import Tasks from '@/pages/Tasks';
-import ActivityLog from '@/pages/ActivityLog';
 import Settings from '@/pages/Settings';
 import NotFound from '@/pages/NotFound';
 import { restoreSession, selectBootstrapped } from '@/features/auth/authSlice';
@@ -38,7 +37,6 @@ export default function App() {
             {/* Old bookmarks and links from earlier emails still work. */}
             <Route path="pipeline" element={<Navigate to="/deals" replace />} />
             <Route path="tasks" element={<Tasks />} />
-            <Route path="activity" element={<ActivityLog />} />
             <Route path="settings" element={<Settings />} />
             <Route path="404" element={<NotFound />} />
             <Route path="*" element={<Navigate to="/404" replace />} />

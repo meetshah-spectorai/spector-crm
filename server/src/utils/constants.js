@@ -50,53 +50,28 @@ const REMINDER_STATUS = {
 
 const REMINDER_STATUS_LIST = Object.values(REMINDER_STATUS);
 
-/** Every activity type written to the immutable activity log. */
-const ACTIVITY_TYPES = [
-  'deal.created',
-  'deal.updated',
-  'deal.stage_changed',
-  'deal.value_changed',
-  'deal.owner_changed',
-  'deal.status_changed',
-  'deal.archived',
-  'deal.restored',
-  'deal.deleted',
-  'note.added',
-  'reminder.created',
-  'reminder.updated',
-  'reminder.completed',
-  'reminder.cancelled',
-  'reminder.deleted',
-  'reminder.notified',
-  'email.sent',
-  'email.received',
-  'stage.created',
-  'stage.updated',
-  'user.registered',
-  'user.login',
-  'user.deleted',
-];
-
-/** Deal fields whose changes are worth a line in the activity log. */
-const TRACKED_DEAL_FIELDS = [
+/**
+ * Deal fields a PATCH may assign. Anything outside this list is ignored, so a
+ * crafted body cannot reach fields the API does not mean to expose.
+ */
+const UPDATABLE_DEAL_FIELDS = [
   'title',
   'stage',
   'status',
   'value',
   'currency',
   'owner',
-  'priority',
   'expectedCloseDate',
   'probability',
   'company',
   'contactName',
+  'contactDesignation',
   'contactEmail',
   'contactPhone',
   'contacts',
   'source',
   'description',
   'lostReason',
-  'tags',
 ];
 
 module.exports = {
@@ -109,6 +84,5 @@ module.exports = {
   CURRENCIES,
   REMINDER_STATUS,
   REMINDER_STATUS_LIST,
-  ACTIVITY_TYPES,
-  TRACKED_DEAL_FIELDS,
+  UPDATABLE_DEAL_FIELDS,
 };

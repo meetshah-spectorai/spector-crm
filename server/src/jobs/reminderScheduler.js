@@ -6,7 +6,6 @@ const User = require('../models/User');
 const config = require('../config/env');
 const logger = require('../utils/logger');
 const { REMINDER_STATUS } = require('../utils/constants');
-const { logActivity } = require('../services/activity.service');
 const { sendReminderDueEmail, sendDailyDigestEmail } = require('../services/email.service');
 
 const DEAL_FIELDS = 'title company value currency stage status';
@@ -62,17 +61,7 @@ async function sweepDueReminders() {
       await reminder.save({ validateBeforeSave: false });
 
       const ok = await sendReminderDueEmail({ user, reminder, deal: reminder.deal });
-      if (ok) {
-        sent += 1;
-        await logActivity({
-          type: 'reminder.notified',
-          message: `Reminder email sent to ${user.name} for "${reminder.title}"`,
-          deal: reminder.deal ? reminder.deal._id : null,
-          reminder: reminder._id,
-          actor: null,
-          meta: { email: user.email, dueAt: reminder.dueAt },
-        });
-      }
+      if (ok) sent += 1;
     }
 
     if (sent) logger.info(`Reminder sweep: ${sent} notification(s) sent`);

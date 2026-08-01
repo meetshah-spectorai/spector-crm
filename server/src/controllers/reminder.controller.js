@@ -7,7 +7,6 @@ const User = require('../models/User');
 const ApiError = require('../utils/ApiError');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
-const { logActivity } = require('../services/activity.service');
 const { sendReminderAssignedEmail } = require('../services/email.service');
 const { REMINDER_STATUS } = require('../utils/constants');
 const { withReminderVirtuals } = require('../utils/decorate');
@@ -158,15 +157,6 @@ const createReminder = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   });
 
-  await logActivity({
-    type: 'reminder.created',
-    message: `Next action set: "${reminder.title}" for ${assignee.name}, due ${reminder.dueAt.toISOString()}`,
-    deal: deal._id,
-    reminder: reminder._id,
-    actor: req.user,
-    meta: { dueAt: reminder.dueAt, assignedTo: String(assignee._id) },
-  });
-
   // Only ping the assignee if someone else created the task for them.
   const assignedToSomeoneElse = String(assignee._id) !== String(req.user._id);
   if (assignedToSomeoneElse && reminder.emailNotify && assignee.notificationPrefs.emailReminders) {
@@ -216,34 +206,6 @@ const updateReminder = asyncHandler(async (req, res) => {
 
   await reminder.save();
 
-  const statusChanged = req.body.status && req.body.status !== before.status;
-  const type =
-    statusChanged && req.body.status === REMINDER_STATUS.COMPLETED
-      ? 'reminder.completed'
-      : statusChanged && req.body.status === REMINDER_STATUS.CANCELLED
-        ? 'reminder.cancelled'
-        : 'reminder.updated';
-
-  const message =
-    type === 'reminder.completed'
-      ? `Completed next action: "${reminder.title}"`
-      : type === 'reminder.cancelled'
-        ? `Cancelled next action: "${reminder.title}"`
-        : `Updated next action: "${reminder.title}"`;
-
-  await logActivity({
-    type,
-    message,
-    deal: reminder.deal,
-    reminder: reminder._id,
-    actor: req.user,
-    changes: Object.keys(req.body).map((field) => ({
-      field,
-      from: before[field] === undefined ? null : before[field],
-      to: reminder[field] === undefined ? null : reminder[field],
-    })),
-  });
-
   await reminder.populate([
     { path: 'assignedTo', select: USER_FIELDS },
     { path: 'deal', select: DEAL_FIELDS },
@@ -266,14 +228,6 @@ const completeReminder = asyncHandler(async (req, res) => {
   reminder.completedBy = req.user._id;
   await reminder.save();
 
-  await logActivity({
-    type: 'reminder.completed',
-    message: `Completed next action: "${reminder.title}"`,
-    deal: reminder.deal,
-    reminder: reminder._id,
-    actor: req.user,
-  });
-
   await reminder.populate([
     { path: 'assignedTo', select: USER_FIELDS },
     { path: 'deal', select: DEAL_FIELDS },
@@ -288,13 +242,6 @@ const deleteReminder = asyncHandler(async (req, res) => {
   if (!reminder) throw ApiError.notFound('Reminder not found');
 
   await reminder.deleteOne();
-
-  await logActivity({
-    type: 'reminder.deleted',
-    message: `Deleted next action: "${reminder.title}"`,
-    deal: reminder.deal,
-    actor: req.user,
-  });
 
   res.json({ success: true, message: 'Reminder deleted' });
 });

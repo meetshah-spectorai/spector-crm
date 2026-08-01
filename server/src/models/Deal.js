@@ -1,7 +1,7 @@
 'use strict';
 
 const mongoose = require('mongoose');
-const { DEAL_STATUS, DEAL_STATUS_LIST, PRIORITIES, CURRENCIES } = require('../utils/constants');
+const { DEAL_STATUS, DEAL_STATUS_LIST, CURRENCIES } = require('../utils/constants');
 
 const dealSchema = new mongoose.Schema(
   {
@@ -13,6 +13,8 @@ const dealSchema = new mongoose.Schema(
     },
     company: { type: String, trim: true, maxlength: 140, default: '' },
     contactName: { type: String, trim: true, maxlength: 120, default: '' },
+    /** The primary contact's job title at the customer, e.g. "Head of Procurement". */
+    contactDesignation: { type: String, trim: true, maxlength: 120, default: '' },
     contactEmail: {
       type: String,
       trim: true,
@@ -35,7 +37,10 @@ const dealSchema = new mongoose.Schema(
         new mongoose.Schema(
           {
             name: { type: String, trim: true, maxlength: 120, default: '' },
+            /** Job title at the customer — who this person is on the account. */
+            designation: { type: String, trim: true, maxlength: 120, default: '' },
             email: { type: String, trim: true, lowercase: true, default: '' },
+            phone: { type: String, trim: true, maxlength: 40, default: '' },
           },
           { _id: false }
         ),
@@ -87,12 +92,6 @@ const dealSchema = new mongoose.Schema(
       max: 100,
       default: 10,
     },
-    priority: {
-      type: String,
-      enum: PRIORITIES,
-      default: 'medium',
-    },
-
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -107,10 +106,6 @@ const dealSchema = new mongoose.Schema(
 
     source: { type: String, trim: true, maxlength: 60, default: '' },
     description: { type: String, trim: true, maxlength: 4000, default: '' },
-    tags: {
-      type: [{ type: String, trim: true, maxlength: 30 }],
-      default: [],
-    },
 
     expectedCloseDate: Date,
     closedAt: Date,

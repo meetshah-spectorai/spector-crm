@@ -11,7 +11,6 @@ const { decrypt } = require('../../utils/crypto');
 const { resolveConnection } = require('./providers');
 const { resolveThreadKey } = require('./threading');
 const { buildContactIndex, matchParticipants, normalize } = require('./contactIndex');
-const { logActivity } = require('../activity.service');
 
 /** Guards against a slow run overlapping the next scheduled one. */
 const running = new Set();
@@ -65,7 +64,7 @@ async function persist({ account, parsed, folder, uid, isUnread, contactIndex, d
     ...new Set([from.email, ...to.map((a) => a.email), ...cc.map((a) => a.email)].filter(Boolean)),
   ];
 
-  const { dealLinks, matches } = matchParticipants(contactIndex, participants);
+  const { dealLinks } = matchParticipants(contactIndex, participants);
   // Belt and braces: the IMAP search already targeted contact addresses.
   if (!dealLinks.length) return { outcome: 'skipped' };
 
@@ -120,30 +119,6 @@ async function persist({ account, parsed, folder, uid, isUnread, contactIndex, d
   );
 
   if (!res.upsertedCount) return { outcome: 'skipped' };
-
-  // Requirement: every synced email shows up on the deal's timeline.
-  const seenDeals = new Set();
-  for (const match of matches) {
-    if (seenDeals.has(String(match.dealId))) continue;
-    seenDeals.add(String(match.dealId));
-
-    const who = match.contactName || match.contactEmail;
-    await logActivity({
-      type: direction === 'sent' ? 'email.sent' : 'email.received',
-      message:
-        direction === 'sent'
-          ? `Email sent to ${who}: "${parsed.subject || '(no subject)'}"`
-          : `Email received from ${who}: "${parsed.subject || '(no subject)'}"`,
-      deal: match.dealId,
-      actor: null,
-      meta: {
-        threadKey,
-        subject: parsed.subject || '',
-        mailbox: account.email,
-        at: parsed.date || new Date(),
-      },
-    });
-  }
 
   return { outcome: 'stored' };
 }
